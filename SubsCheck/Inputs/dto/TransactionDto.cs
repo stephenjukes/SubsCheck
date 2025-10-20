@@ -1,8 +1,8 @@
 ﻿using CsvHelper.Configuration.Attributes;
 
-namespace SubsCheck.Inputs.dto.CSV
+namespace SubsCheck.Inputs.dto
 {
-    public class CsvTransaction
+    public class TransactionDto
     {
         [Name("Transaction Date")]
         public DateOnly Date { get; set; }

@@ -2,8 +2,10 @@
 {
     public interface IIsAllocatedSubs
     {
-        public IEnumerable<Transaction> Subs { get; set; }
+        public List<Subscription> Subs { get; set; }
 
         public int ReferenceMatchScore { get; set; }
+
+        public bool CheckSplitWordsOnly { get; set; }
     }
 }

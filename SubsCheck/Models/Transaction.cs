@@ -8,8 +8,7 @@
 
         public decimal Credit { get; set; }
 
-        public int IsSubScore { get; set; }
-
-        // public Func< MyProperty { get; set; }
+        public override string ToString()
+            => $"{Credit}: {Reference}";
     }
 }

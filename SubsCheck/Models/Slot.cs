@@ -2,8 +2,11 @@
 {
     public class Slot
     {
-        public DateTime Date { get; set; }
+        public DateOnly Date { get; set; }
 
         public Transaction Sub { get; set; }
+
+        public override string ToString()
+            => $"{Date}: {Sub?.Credit}";
     }
 }

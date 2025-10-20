@@ -8,11 +8,11 @@ namespace SubsCheck.Models
 
         public DateOnly? End { get; set; }
 
-        public bool CheckSplitWordOnly { get; set; }
+        public bool CheckSplitWordsOnly { get; set; }
 
         public IEnumerable<Slot> Slots { get; set; } = [];
 
-        public IEnumerable<Transaction> Subs { get; set; } = [];
+        public List<Subscription> Subs { get; set; } = [];
 
         public int ReferenceMatchScore { get; set; }
     }

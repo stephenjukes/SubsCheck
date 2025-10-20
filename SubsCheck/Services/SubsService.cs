@@ -1,46 +1,150 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using SubsCheck.Inputs.dto.CSV;
+﻿using SubsCheck.Inputs.dto;
 using SubsCheck.Models;
-using SubsCheck.Repositories;
-using static SubsCheck.Mappers;
+using SubsCheck.Models.Constants.Enums;
+using SubsCheck.Services.Interfaces;
 
 namespace SubsCheck.Services
 {
     public class SubsService : ISubsService
     {
-        public IEnumerable<CsvMember> CalculateSubs()
+        private readonly Configuration _config;
+        private readonly IMemberService _memberService;
+        private readonly ISubscriptionsService _subscriptionsService;
+        private readonly IDateService _dateService;
+        private readonly IDataIO _csvDataIO;
+        private readonly IDataIO _excelDataIO;
+        private readonly List<Error> _errors;
+        private static readonly string BaseFile = "./../../../";
+        private static readonly string Inputs = BaseFile + "Inputs/";
+        private static readonly string Outputs = BaseFile + "Outputs/";
+
+        public SubsService(
+            Configuration config, 
+            IDataIO csvDataIO,
+            IDataIO excelDataIO,
+            IMemberService memberService, 
+            ISubscriptionsService subscriptionsService, 
+            IDateService dateService)
         {
-            //// TODO: Can this be done via Startup?
-            //var configString = await File.ReadAllTextAsync(ConfigFile);
-            //var config = JsonSerializer.Deserialize<Configuration>(configString);
+            _config = config;
+            _csvDataIO = csvDataIO;
+            _excelDataIO = excelDataIO;
+            _memberService = memberService;
+            _subscriptionsService = subscriptionsService;
+            _dateService = dateService;
+        }
 
-            //var csvMembers = await _repository
-            //    .GetAll<CsvMember>(new GetRequest { Path = MembersFile });
+        public async Task<IEnumerable<MemberDto>> CalculateSubs()
+        {
+            _excelDataIO.Write(new WriteRequest<string>
+            {
+                Data = new string[] { "Hello World! " },
+                ResourceLocator = Outputs + "HelloWord.xlsx" 
+            });
 
-            //// Actually, we want to create members within families immediately?
-            //var members = csvMembers
-            //    .Where(m =>
-            //        m.Start <= config.End &&
-            //        (m.End is null || m.End >= config.Start))
-            //    .Select(ToMember);
+            var errors = new List<Error>();
 
-            //var csvTransactions = await _repository.GetAll<CsvTransaction>(
-            //    new GetRequest { Path = TransactionsFile });
+            var members = await _csvDataIO.Read<MemberDto>(new ReadRequest { ResourceLocator = Inputs + "Members.csv" });
+            var families = _memberService.CreateFamilies(members);
 
-            //var transactions = csvTransactions
-            //    .Where(t => 
-            //        t.Credit is not null && 
-            //        t.Date >= config.Start &&
-            //        t.Date <= config.End)
-            //    .Select(ToTransaction);
+            var transactions = await _csvDataIO.Read<TransactionDto>(new ReadRequest { ResourceLocator = Inputs + "Transactions.csv" });
+            var subs = _subscriptionsService.CreateSubscriptions(transactions, families);
 
+            var subsByFamily = subs
+                .GroupBy(s => s.FamilyAllocation)
+                .ToDictionary(g => g.Key, g => g.ToList());
+            
+            foreach (var family in families)
+            {
+                family.Subs = subsByFamily[family.Id].OrderBy(s => s.Type).ToList();
+
+                foreach (var sub in family.Subs)
+                {
+                    // TODO: is there a better way to do this?
+                    switch (sub.Type)
+                    {
+                        case SubscriptionType.Backdated:
+                            AllocateSubToMember(sub, family, IsBackdatedSlot(sub));
+                            break;
+                        case SubscriptionType.Regular:
+                            AllocateSubToMember(sub, family);
+                            break;
+                        default: throw new InvalidOperationException($"Subscription type '{sub.Type}' is not recognised");
+                    }
+                }
+            }
 
             return null;
         }
+
+        private void AllocateSubToMember(
+            Subscription sub, 
+            Family family, 
+            Func<(Member Member, Slot Slot), bool>? isRequiredSlot = null)
+        {
+            isRequiredSlot ??= x => true;
+
+            foreach (var member in family.Members)
+                member.ReferenceMatchScore = _subscriptionsService.AssignReferenceMatchScore(member, sub.Reference);
+
+            var paymentCount = (int)(sub.Credit / _config.SubsPrice);
+
+            var selectedSlots = family.Members
+                .SelectMany(m => m.Slots, (m, slot) => (Member: m, Slot: slot))
+                .Where(x => x.Slot.Sub is null && x.Slot.Date <= sub.Date)
+                .OrderByDescending(x => x.Member.ReferenceMatchScore)
+                .ThenByDescending(x => x.Slot.Date)
+                .Where(isRequiredSlot)
+                .Take(paymentCount);
+            // not reversing for now unless we see a need
+
+            if (selectedSlots.Count() < paymentCount)
+                _errors.Add(new Error
+                {
+                    Description = "Unable to allocate full subscription",
+                    Message = $"Sub for £{sub.Credit} " +
+                        $"with reference {sub.Reference} could not be allocated to the " +
+                        $"{selectedSlots.Count()} slots found for the " +
+                        $"{family.Father.LastName} family"
+                });
+
+            foreach (var (member, slot) in selectedSlots)
+            {
+                slot.Sub = sub;
+                member.Subs.Add(sub);
+            }
+        }
+
+        // TODO: Move to DateService or even a BackdatedAllocation service?
+        /////////////////////////////////////////////////////////////////////////////
+        private Func<(Member Member, Slot Slot), bool> IsBackdatedSlot(Subscription sub)
+        {
+            var monthsFromReference = _dateService.GetMonthsFromText(sub.Reference);
+            var backdatedMonths = GetBackdatedAllocatedMonths(monthsFromReference, sub.Date);
+
+            return x => backdatedMonths.Contains(x.Slot.Date);
+        }
+
+        private IEnumerable<DateOnly> GetBackdatedAllocatedMonths(IEnumerable<Month> monthsInReference, DateOnly paymentDate)
+        {
+            if (monthsInReference.Count() != 2)
+                return monthsInReference.Select(m => MonthToDate(m, paymentDate));
+
+            // to dates assumes a range
+            var startDate = MonthToDate(monthsInReference.First(), paymentDate);
+            var endDate = MonthToDate(monthsInReference.Last(), paymentDate);
+
+            return _dateService.GetMonthRange(startDate, endDate);
+        }
+
+        private DateOnly MonthToDate(Month designatedMonth, DateOnly paymentDate)
+        {
+            var allocationYear = designatedMonth.Number <= paymentDate.Month
+                ? paymentDate.Year
+                : paymentDate.Year - 1;
+
+            return new DateOnly(allocationYear, designatedMonth.Number, 1);
+        }
+        /////////////////////////////////////////////////////////////////////////////
     }
 }

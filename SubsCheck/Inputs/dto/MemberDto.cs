@@ -1,6 +1,6 @@
-﻿namespace SubsCheck.Inputs.dto.CSV
+﻿namespace SubsCheck.Inputs.dto
 {
-    public class CsvMember
+    public class MemberDto
     {
         public string LastName { get; set; }
 
