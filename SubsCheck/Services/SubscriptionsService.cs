@@ -1,7 +1,7 @@
 ﻿using SubsCheck.Extensions;
-using SubsCheck.Inputs.dto;
 using SubsCheck.Models;
 using SubsCheck.Models.Constants.Enums;
+using SubsCheck.Models.IO.Input;
 using SubsCheck.Services.Interfaces;
 
 namespace SubsCheck.Services;

@@ -1,4 +1,4 @@
-﻿using SubsCheck.Inputs.dto;
+﻿using SubsCheck.Models.IO.Input;
 using SubsCheck.Services;
 using System.Text.Json;
 

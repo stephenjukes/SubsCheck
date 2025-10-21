@@ -1,6 +1,6 @@
-﻿namespace SubsCheck.Inputs.dto
+﻿namespace SubsCheck.Models.IO.Input
 {
-    public class MemberDto
+    public class MemberInput
     {
         public string LastName { get; set; }
 

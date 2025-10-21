@@ -1,10 +1,10 @@
-﻿using SubsCheck.Inputs.dto;
+﻿using SubsCheck.Models.IO.Input;
 
 namespace SubsCheck.Services.Interfaces
 {
     public interface ISubsService
     {
         // This will need to be split out into separate methods
-        Task<IEnumerable<MemberDto>> CalculateSubs();
+        Task<IEnumerable<MemberInput>> CalculateSubs();
     }
 }

@@ -1,6 +1,7 @@
-﻿using SubsCheck.Inputs.dto;
-using SubsCheck.Models;
+﻿using SubsCheck.Models;
 using SubsCheck.Models.Constants.Enums;
+using SubsCheck.Models.IO.Input;
+using SubsCheck.Models.IO.Output;
 using SubsCheck.Services.Interfaces;
 
 namespace SubsCheck.Services
@@ -34,18 +35,12 @@ namespace SubsCheck.Services
             _dateService = dateService;
         }
 
-        public async Task<IEnumerable<MemberDto>> CalculateSubs()
+        public async Task<IEnumerable<MemberInput>> CalculateSubs()
         {
-            _excelDataIO.Write(new WriteRequest<string>
-            {
-                Data = new string[] { "Hello World! " },
-                ResourceLocator = Outputs + "HelloWord.xlsx" 
-            });
-
             var errors = new List<Error>();
 
-            var members = await _csvDataIO.Read<MemberDto>(new ReadRequest { ResourceLocator = Inputs + "Members.csv" });
-            var families = _memberService.CreateFamilies(members);
+            var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = Inputs + "Members.csv" });
+            var families = _memberService.CreateFamilies(memberDtos);
 
             var transactions = await _csvDataIO.Read<TransactionDto>(new ReadRequest { ResourceLocator = Inputs + "Transactions.csv" });
             var subs = _subscriptionsService.CreateSubscriptions(transactions, families);
@@ -53,7 +48,7 @@ namespace SubsCheck.Services
             var subsByFamily = subs
                 .GroupBy(s => s.FamilyAllocation)
                 .ToDictionary(g => g.Key, g => g.ToList());
-            
+
             foreach (var family in families)
             {
                 family.Subs = subsByFamily[family.Id].OrderBy(s => s.Type).ToList();
@@ -73,6 +68,26 @@ namespace SubsCheck.Services
                     }
                 }
             }
+
+            // TODO: This doesn't belong here.
+            // Look at design patterns to see how formatting can be done in conjunction with the excelDataIO
+            Func<Member, IEnumerable<string>> getRowHeaders = m => [ $"{ m.LastName } { m.FirstName }"];
+            
+            var members = families.SelectMany(f => f.Members);
+            
+            var header = getRowHeaders(new Member()).Select(v => "")
+                .Concat(members.First().Slots.Select(s => s.Date.ToString("MMM yy")));
+            
+            var memberRows = members.Select(m => getRowHeaders(m).Concat(
+                    m.Slots.Select(slot => slot.Sub is not null ? slot.Sub.Date.ToString("dd/MM") : "x")));
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            _excelDataIO.Write(new WriteRequest<IEnumerable<IEnumerable<string>>>
+            {
+                // create an extenstion to make this nicer
+                Data = (new IEnumerable<string>[] { header }).Concat(memberRows),
+                ResourceLocator = Outputs + "Subs.xlsx"
+            });
 
             return null;
         }

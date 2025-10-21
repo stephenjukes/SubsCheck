@@ -1,5 +1,5 @@
-﻿using SubsCheck.Inputs.dto;
-using SubsCheck.Models;
+﻿using SubsCheck.Models;
+using SubsCheck.Models.IO.Input;
 using SubsCheck.Services.Interfaces;
 
 namespace SubsCheck.Services;
@@ -14,7 +14,7 @@ public class MemberService : IMemberService
         _dateService = dateService;
     }
 
-    public IList<Family> CreateFamilies(IEnumerable<MemberDto> members)
+    public IList<Family> CreateFamilies(IEnumerable<MemberInput> members)
     {
         var slots = _dateService.GetMonthRange(_config.Start, _config.End)
             .Select(date => new Slot { Date = date })

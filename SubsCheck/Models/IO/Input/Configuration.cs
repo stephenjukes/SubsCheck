@@ -1,4 +1,4 @@
-﻿namespace SubsCheck.Inputs.dto
+﻿namespace SubsCheck.Models.IO.Input
 {
     public class Configuration
     {

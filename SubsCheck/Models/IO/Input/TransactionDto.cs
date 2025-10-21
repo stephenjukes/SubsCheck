@@ -1,6 +1,6 @@
 ﻿using CsvHelper.Configuration.Attributes;
 
-namespace SubsCheck.Inputs.dto
+namespace SubsCheck.Models.IO.Input
 {
     public class TransactionDto
     {

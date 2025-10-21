@@ -1,5 +1,5 @@
-﻿using SubsCheck.Inputs.dto;
-using SubsCheck.Models;
+﻿using SubsCheck.Models;
+using SubsCheck.Models.IO.Input;
 
 namespace SubsCheck.Services.Interfaces;
 
