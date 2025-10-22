@@ -44,7 +44,15 @@ public class ExcelDataIO : IDataIO
         // freeze panes
         ws.SheetView.Freeze(1, 1);
 
-
-        workbook.SaveAs(request.ResourceLocator);
+        try
+        {
+            workbook.SaveAs(request.ResourceLocator);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("" +
+                "An error has occurred, likely because the output document is still open. " +
+                "Please ensure the output document is closed and try again.");
+        }
     }
 }

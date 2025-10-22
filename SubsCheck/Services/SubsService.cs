@@ -18,6 +18,7 @@ namespace SubsCheck.Services
         private static readonly string BaseFile = "./../../../";
         private static readonly string Inputs = BaseFile + "Inputs/";
         private static readonly string Outputs = BaseFile + "Outputs/";
+        private static readonly string OutputPath = Outputs + "Subs.xlsx";
 
         public SubsService(
             Configuration config, 
@@ -37,11 +38,15 @@ namespace SubsCheck.Services
 
         public async Task<IEnumerable<MemberInput>> CalculateSubs()
         {
+            Console.WriteLine("Processing started ...");
+
             var errors = new List<Error>();
 
+            Console.WriteLine("Getting members ...");
             var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = Inputs + "Members.csv" });
             var families = _memberService.CreateFamilies(memberDtos);
 
+            Console.WriteLine("Getting transactions...");
             var transactions = await _csvDataIO.Read<TransactionDto>(new ReadRequest { ResourceLocator = Inputs + "Transactions.csv" });
             var subs = _subscriptionsService.CreateSubscriptions(transactions, families);
 
@@ -49,9 +54,15 @@ namespace SubsCheck.Services
                 .GroupBy(s => s.FamilyAllocation)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
+            var familyCount = families.Count();
+
+            Console.WriteLine("Processing members...");
             foreach (var family in families)
             {
-                family.Subs = subsByFamily[family.Id].OrderBy(s => s.Type).ToList();
+                var hasSubs = subsByFamily.TryGetValue(family.Id, out List<Subscription> familySubs);
+                if (!hasSubs) continue;
+
+                family.Subs = familySubs.OrderBy(s => s.Type).ToList();
 
                 foreach (var sub in family.Subs)
                 {
@@ -71,9 +82,12 @@ namespace SubsCheck.Services
 
             // TODO: This doesn't belong here.
             // Look at design patterns to see how formatting can be done in conjunction with the excelDataIO
+            Console.WriteLine("Creating output...");
             Func<Member, IEnumerable<string>> getRowHeaders = m => [ $"{ m.LastName } { m.FirstName }"];
             
-            var members = families.SelectMany(f => f.Members);
+            var members = families
+                .SelectMany(f => f.Members)
+                .OrderBy(m => m.LastName);
             
             var header = getRowHeaders(new Member()).Select(v => "")
                 .Concat(members.First().Slots.Select(s => s.Date.ToString("MMM yy")));
@@ -86,8 +100,10 @@ namespace SubsCheck.Services
             {
                 // create an extenstion to make this nicer
                 Data = (new IEnumerable<string>[] { header }).Concat(memberRows),
-                ResourceLocator = Outputs + "Subs.xlsx"
+                ResourceLocator = OutputPath
             });
+
+            Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(OutputPath)}");
 
             return null;
         }
@@ -113,15 +129,15 @@ namespace SubsCheck.Services
                 .Take(paymentCount);
             // not reversing for now unless we see a need
 
-            if (selectedSlots.Count() < paymentCount)
-                _errors.Add(new Error
-                {
-                    Description = "Unable to allocate full subscription",
-                    Message = $"Sub for £{sub.Credit} " +
-                        $"with reference {sub.Reference} could not be allocated to the " +
-                        $"{selectedSlots.Count()} slots found for the " +
-                        $"{family.Father.LastName} family"
-                });
+            //if (selectedSlots.Count() < paymentCount)
+            //    _errors.Add(new Error
+            //    {
+            //        Description = "Unable to allocate full subscription",
+            //        Message = $"Sub for £{sub.Credit} " +
+            //            $"with reference {sub.Reference} could not be allocated to the " +
+            //            $"{selectedSlots.Count()} slots found for the " +
+            //            $"{family.Father.LastName} family"
+            //    });
 
             foreach (var (member, slot) in selectedSlots)
             {

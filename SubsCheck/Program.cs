@@ -14,6 +14,7 @@ namespace SubsCheck
             var transactionsFile = inputs + "Transactions.csv";
             var configFile = inputs + "config.json";
 
+            // TODO: DI
             // TODO: Can this be done via Startup?
             var configString = await File.ReadAllTextAsync(configFile);
             var config = JsonSerializer.Deserialize<Configuration>(configString);
