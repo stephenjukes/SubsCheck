@@ -21,12 +21,12 @@ namespace SubsCheck
 
             // TODO: DI
             var csvDataIO = new CsvDataIO();
-            var excelDataIO = new ExcelDataIO();
+            var subsWriter = new SubsWriter();
             var dateService = new DateService();
             var memberService = new MemberService(config, dateService);
             var subscriptionsService = new SubscriptionsService(config, dateService);
 
-            var subsService = new SubsService(config, csvDataIO, excelDataIO, memberService, subscriptionsService, dateService);
+            var subsService = new SubsService(config, csvDataIO, subsWriter, memberService, subscriptionsService, dateService);
 
             var subsAllocatedMembers = await subsService.CalculateSubs();
         }

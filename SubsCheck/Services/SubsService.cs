@@ -13,7 +13,8 @@ namespace SubsCheck.Services
         private readonly ISubscriptionsService _subscriptionsService;
         private readonly IDateService _dateService;
         private readonly IDataIO _csvDataIO;
-        private readonly IDataIO _excelDataIO;
+        //private readonly IDataIO _excelDataIO;
+        private readonly ISubsWriter _subsWriter;
         private readonly List<Error> _errors;
         private static readonly string BaseFile = "./../../../";
         private static readonly string Inputs = BaseFile + "Inputs/";
@@ -23,14 +24,15 @@ namespace SubsCheck.Services
         public SubsService(
             Configuration config, 
             IDataIO csvDataIO,
-            IDataIO excelDataIO,
+            //IDataIO excelDataIO,
+            ISubsWriter subsWriter,
             IMemberService memberService, 
             ISubscriptionsService subscriptionsService, 
             IDateService dateService)
         {
             _config = config;
             _csvDataIO = csvDataIO;
-            _excelDataIO = excelDataIO;
+            _subsWriter = subsWriter;
             _memberService = memberService;
             _subscriptionsService = subscriptionsService;
             _dateService = dateService;
@@ -83,25 +85,37 @@ namespace SubsCheck.Services
             // TODO: This doesn't belong here.
             // Look at design patterns to see how formatting can be done in conjunction with the excelDataIO
             Console.WriteLine("Creating output...");
-            Func<Member, IEnumerable<string>> getRowHeaders = m => [ $"{ m.LastName } { m.FirstName }"];
-            
             var members = families
                 .SelectMany(f => f.Members)
                 .OrderBy(m => m.LastName);
-            
-            var header = getRowHeaders(new Member()).Select(v => "")
-                .Concat(members.First().Slots.Select(s => s.Date.ToString("MMM yy")));
-            
-            var memberRows = members.Select(m => getRowHeaders(m).Concat(
-                    m.Slots.Select(slot => slot.Sub is not null ? slot.Sub.Date.ToString("dd/MM") : "x")));
-            //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            _excelDataIO.Write(new WriteRequest<IEnumerable<IEnumerable<string>>>
+            _subsWriter.Write(new WriteRequest<IEnumerable<Member>>
             {
-                // create an extenstion to make this nicer
-                Data = (new IEnumerable<string>[] { header }).Concat(memberRows),
+                Data = members,
                 ResourceLocator = OutputPath
             });
+
+
+            //Func<Member, IEnumerable<string>> getRowHeaders = m => [ $"{ m.LastName } { m.FirstName }"];
+
+            //var slotCollections = families
+            //    .SelectMany(f => f.Members)
+            //    .OrderBy(m => m.LastName)
+            //    .Select(m => m.Slots);
+            
+            //var header = getRowHeaders(new Member()).Select(v => "")
+            //    .Concat(members.First().Slots.Select(s => s.Date.ToString("MMM yy")));
+            
+            //var memberRows = members.Select(m => getRowHeaders(m).Concat(
+            //        m.Slots.Select(slot => slot.Sub is not null ? slot.Sub.Date.ToString("dd/MM") : "x")));
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            //_excelDataIO.Write(new WriteRequest<IEnumerable<IEnumerable<Slot>>>
+            //{
+            //    // create an extenstion to make this nicer
+            //    Data = slotCollections,
+            //    ResourceLocator = OutputPath
+            //});
 
             Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(OutputPath)}");
 

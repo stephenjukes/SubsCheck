@@ -1,4 +1,5 @@
 ﻿namespace SubsCheck.Models;
+
 public class WriteRequest<T>
 {
     public T Data { get; set; }
