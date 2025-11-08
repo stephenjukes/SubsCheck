@@ -1,4 +1,6 @@
-﻿using SubsCheck.Models;
+﻿using System.Text.RegularExpressions;
+using DocumentFormat.OpenXml.Vml.Spreadsheet;
+using SubsCheck.Models;
 using SubsCheck.Models.Constants.Enums;
 using SubsCheck.Models.IO.Input;
 using SubsCheck.Models.IO.Output;
@@ -46,7 +48,7 @@ namespace SubsCheck.Services
 
             Console.WriteLine("Getting members ...");
             var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = Inputs + "Members.csv" });
-            var families = _memberService.CreateFamilies(memberDtos);
+            var families = _memberService.CreateFamilies(memberDtos); //.OrderByDescending(f => f.Father.LastName == "Ou").ToList();
 
             Console.WriteLine("Getting transactions...");
             var transactions = await _csvDataIO.Read<TransactionDto>(new ReadRequest { ResourceLocator = Inputs + "Transactions.csv" });
@@ -55,8 +57,8 @@ namespace SubsCheck.Services
             var subsByFamily = subs
                 .GroupBy(s => s.FamilyAllocation)
                 .ToDictionary(g => g.Key, g => g.ToList());
-
-            var familyCount = families.Count();
+            
+            // var familyCount = families.Count();
 
             Console.WriteLine("Processing members...");
             foreach (var family in families)
@@ -82,13 +84,16 @@ namespace SubsCheck.Services
                 }
             }
 
-            // TODO: This doesn't belong here.
-            // Look at design patterns to see how formatting can be done in conjunction with the excelDataIO
-            Console.WriteLine("Creating output...");
             var members = families
                 .SelectMany(f => f.Members)
                 .OrderBy(m => m.LastName);
 
+            foreach (var member in members)
+            {
+                AssignConfidenceToSubs(member.Subs);
+            }
+
+            Console.WriteLine("Creating output...");
             _subsWriter.Write(new WriteRequest<IEnumerable<Member>>
             {
                 Data = members,
@@ -96,30 +101,37 @@ namespace SubsCheck.Services
             });
 
 
-            //Func<Member, IEnumerable<string>> getRowHeaders = m => [ $"{ m.LastName } { m.FirstName }"];
-
-            //var slotCollections = families
-            //    .SelectMany(f => f.Members)
-            //    .OrderBy(m => m.LastName)
-            //    .Select(m => m.Slots);
-            
-            //var header = getRowHeaders(new Member()).Select(v => "")
-            //    .Concat(members.First().Slots.Select(s => s.Date.ToString("MMM yy")));
-            
-            //var memberRows = members.Select(m => getRowHeaders(m).Concat(
-            //        m.Slots.Select(slot => slot.Sub is not null ? slot.Sub.Date.ToString("dd/MM") : "x")));
-            //////////////////////////////////////////////////////////////////////////////////////////////////
-
-            //_excelDataIO.Write(new WriteRequest<IEnumerable<IEnumerable<Slot>>>
-            //{
-            //    // create an extenstion to make this nicer
-            //    Data = slotCollections,
-            //    ResourceLocator = OutputPath
-            //});
-
             Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(OutputPath)}");
 
             return null;
+        }
+
+        // TODO: Should this go in the subscriptions service?
+        private static void AssignConfidenceToSubs(List<Subscription> subs)
+        {
+            if (!subs.Any()) return;
+
+            var referenceGroups = subs
+                .GroupBy(s => s.Reference) // Regex.Match(s.Reference, @"(.*?)\s*(?=\s+\S*\d{3}|$)").Groups[1].Value)
+                .OrderByDescending(group => group.Count());
+
+            var modelReference = referenceGroups.First();
+
+            foreach (var referenceGroup in referenceGroups)
+            {
+                if (referenceGroup.Count() == 1)
+                    AssignConfidenceToSubs(AssignmentConfidence.Low, referenceGroup);
+                else if (referenceGroup.Count() == modelReference.Count())
+                    AssignConfidenceToSubs(AssignmentConfidence.High, referenceGroup);
+                else
+                    AssignConfidenceToSubs(AssignmentConfidence.Medium, referenceGroup);
+            }
+        }
+
+        private static void AssignConfidenceToSubs(AssignmentConfidence assignment, IEnumerable<Subscription> subs)
+        {
+            foreach (var sub in subs)
+                sub.AssignmentConfidence = assignment;
         }
 
         private void AllocateSubToMember(
@@ -136,12 +148,14 @@ namespace SubsCheck.Services
 
             var selectedSlots = family.Members
                 .SelectMany(m => m.Slots, (m, slot) => (Member: m, Slot: slot))
-                .Where(x => x.Slot.Sub is null && x.Slot.Date <= sub.Date)
+                .Where(x =>
+                    isRequiredSlot(x) &&
+                    x.Slot.IsAvailable &&
+                    x.Slot.Sub is null && 
+                    x.Slot.Date <= sub.Date)
                 .OrderByDescending(x => x.Member.ReferenceMatchScore)
                 .ThenByDescending(x => x.Slot.Date)
-                .Where(isRequiredSlot)
                 .Take(paymentCount);
-            // not reversing for now unless we see a need
 
             //if (selectedSlots.Count() < paymentCount)
             //    _errors.Add(new Error

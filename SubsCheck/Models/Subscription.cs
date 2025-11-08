@@ -7,7 +7,7 @@ public class Subscription : Transaction
 
     public Guid FamilyAllocation { get; set; }
 
-    public SubscriptionType Type { get; set; }
+    public AssignmentConfidence AssignmentConfidence { get; set; }
 
-    // public Func<Slot, Slot> GetSlots { get; set; }
+    public SubscriptionType Type { get; set; }
 }

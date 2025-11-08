@@ -1,4 +1,5 @@
-﻿using SubsCheck.Extensions;
+﻿using System.Text.RegularExpressions;
+using SubsCheck.Extensions;
 using SubsCheck.Models;
 using SubsCheck.Models.Constants.Enums;
 using SubsCheck.Models.IO.Input;
@@ -22,11 +23,12 @@ public class SubscriptionsService : ISubscriptionsService
     {
         var subs = transactions
             .Where(t =>
+                //t.Date == DateOnly.FromDateTime(new DateTime(2024, 4, 18)) &&
                 t.Date >= _config.Start &&
                 t.Date <= _config.End &&
                 t.Credit is not null &&
                 t.Credit % _config.SubsPrice == 0 &&
-                _config.NonSubsFlags.All(flag => !t.Reference.Contains(flag)))
+                !_config.NonSubsFlags.Any(flag => t.Reference.Contains(flag, StringComparison.OrdinalIgnoreCase)))
             .Select(ToSubscription)
             .ToList()
             ;
@@ -64,7 +66,7 @@ public class SubscriptionsService : ISubscriptionsService
         {
             Date = csvTransaction.Date,
             Credit = csvTransaction.Credit ?? 0,
-            Reference = (csvTransaction.Reference ?? "").ToLower(),
+            Reference = Regex.Match(csvTransaction.Reference, @"(.*?)\s*(?=\s+\S*\d{3}|$)").Groups[1].Value.ToLower()
         };
     }
 
@@ -79,18 +81,18 @@ public class SubscriptionsService : ISubscriptionsService
             if (f.Members.Any(m => reference.ContainsIsolatedText(m.LastName.ToLower())))                       score += 30;
             if (!f.CheckSplitWordsOnly && f.Members.Any(m => reference.Contains(m.LastName.ToLower())))         score += 25;
             if (f.Members.Any(m => reference.ContainsIsolatedText(m.FirstName.ToLower())))                      score += 20;
-            if (!f.CheckSplitWordsOnly && f.Members.Any(m => reference.Contains(m.FirstName.ToLower())))        score += 20;
+            if (!f.CheckSplitWordsOnly && f.Members.Any(m => reference.Contains(m.FirstName.ToLower())))        score += 15;
             if (f.Members.Any(m => reference.ContainsIsolatedText(m.FirstName.First().ToString().ToLower())))   score += 10;
 
             if (reference.ContainsIsolatedText(f.Mother.LastName.ToLower()))                                    score += 20;
             if (!f.CheckSplitWordsOnly && reference.Contains(f.Mother.LastName.ToLower()))                      score += 15;
-            if (f.Members.Any(m => reference.ContainsIsolatedText(m.FirstName.First().ToString().ToLower())))   score += 5;
+            if (reference.ContainsIsolatedText(f.Mother.FirstName.First().ToString().ToLower()))                score += 5;
             if (reference.ContainsIsolatedText(f.Mother.FirstName.ToLower()))                                   score += 1;
             // full firstnames are more likely to be for members than parents
 
             if (reference.ContainsIsolatedText(f.Father.LastName.ToLower()))                                    score += 20;
             if (!f.CheckSplitWordsOnly && reference.Contains(f.Father.LastName.ToLower()))                      score += 15;
-            if (f.Members.Any(m => reference.ContainsIsolatedText(m.FirstName.First().ToString().ToLower())))   score += 5;
+            if (reference.ContainsIsolatedText(f.Father.FirstName.First().ToString().ToLower()))                score += 5;
             if (reference.ContainsIsolatedText(f.Father.FirstName.ToLower()))                                   score += 1;
             // full firstnames are more likely to be for members than parents
 

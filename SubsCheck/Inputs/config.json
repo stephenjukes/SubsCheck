@@ -1,7 +1,7 @@
 {
   "SubsPrice": 10,
   "Start": "2024-04-01",
-  "End": "2026-04-30",
+  "End": "2025-09-30",
   "Culture": "en-GB",
   "NonSubsFlags": [ "bbq", "bid", "bw", "shirt", "camp", "polo", "hoody", "scarf", "raffle" ]
 }
