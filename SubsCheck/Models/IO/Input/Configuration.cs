@@ -8,6 +8,8 @@
 
         public DateOnly End { get; set; }
 
+        public string DefaultAccount { get; set; }
+
         public string Culture { get; set; }
 
         public IEnumerable<string> NonSubsFlags { get; set; }

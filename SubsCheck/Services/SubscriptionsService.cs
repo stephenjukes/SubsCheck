@@ -12,7 +12,9 @@ public class SubscriptionsService : ISubscriptionsService
     private readonly IDateService _dateService;
     private const int SubsScoreThreshold = 25;
 
-    public SubscriptionsService(Configuration config, IDateService dateService)
+    public SubscriptionsService(
+        Configuration config, 
+        IDateService dateService)
     {
         _config = config;
         _dateService = dateService;
@@ -23,7 +25,6 @@ public class SubscriptionsService : ISubscriptionsService
     {
         var subs = transactions
             .Where(t =>
-                //t.Date == DateOnly.FromDateTime(new DateTime(2024, 4, 18)) &&
                 t.Date >= _config.Start &&
                 t.Date <= _config.End &&
                 t.Credit is not null &&
@@ -65,8 +66,10 @@ public class SubscriptionsService : ISubscriptionsService
         return new Subscription
         {
             Date = csvTransaction.Date,
+            AccountNumber = csvTransaction.AccountNumber,
             Credit = csvTransaction.Credit ?? 0,
             Reference = Regex.Match(csvTransaction.Reference, @"(.*?)\s*(?=\s+\S*\d{3}|$)").Groups[1].Value.ToLower()
+            // the regex removes the long alphanumeric strings and anything after from the reference
         };
     }
 

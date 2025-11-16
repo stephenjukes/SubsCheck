@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using System.Transactions;
 using DocumentFormat.OpenXml.Vml.Spreadsheet;
 using SubsCheck.Models;
 using SubsCheck.Models.Constants.Enums;
@@ -15,18 +16,22 @@ namespace SubsCheck.Services
         private readonly ISubscriptionsService _subscriptionsService;
         private readonly IDateService _dateService;
         private readonly IDataIO _csvDataIO;
-        //private readonly IDataIO _excelDataIO;
         private readonly ISubsWriter _subsWriter;
-        private readonly List<Error> _errors;
+        private readonly List<Error> _errors = [];
+
         private static readonly string BaseFile = "./../../../";
         private static readonly string Inputs = BaseFile + "Inputs/";
+        private static readonly string TransactionsDirectory = Inputs + "Transactions/";
         private static readonly string Outputs = BaseFile + "Outputs/";
+
+        private static readonly string IsDefaultAccount = "isDefaultAccount";
+        private static readonly string IsNotDefaultAccount = "isNotDefaultAccount";
+
         private static readonly string OutputPath = Outputs + "Subs.xlsx";
 
         public SubsService(
             Configuration config, 
             IDataIO csvDataIO,
-            //IDataIO excelDataIO,
             ISubsWriter subsWriter,
             IMemberService memberService, 
             ISubscriptionsService subscriptionsService, 
@@ -43,21 +48,61 @@ namespace SubsCheck.Services
         public async Task<IEnumerable<MemberInput>> CalculateSubs()
         {
             Console.WriteLine("Processing started ...");
-
             var errors = new List<Error>();
 
             Console.WriteLine("Getting members ...");
             var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = Inputs + "Members.csv" });
-            var families = _memberService.CreateFamilies(memberDtos); //.OrderByDescending(f => f.Father.LastName == "Ou").ToList();
+            var families = _memberService.CreateFamilies(memberDtos);
 
-            Console.WriteLine("Getting transactions...");
-            var transactions = await _csvDataIO.Read<TransactionDto>(new ReadRequest { ResourceLocator = Inputs + "Transactions.csv" });
-            var subs = _subscriptionsService.CreateSubscriptions(transactions, families);
+            Console.WriteLine($"Processing account {_config.DefaultAccount}");
+            var defaultAccountTransactions = await _csvDataIO.Read<TransactionDto>(
+                new ReadRequest { ResourceLocator = TransactionsDirectory + _config.DefaultAccount + ".csv" });
+
+            AllocateSubs(defaultAccountTransactions, families);
+
+            var transactionFiles = Directory.GetFiles(TransactionsDirectory)
+                .Where(filename => Path.GetFileNameWithoutExtension(filename) != _config.DefaultAccount);
+            
+            foreach (var transactionFile in transactionFiles)
+            {
+                Console.WriteLine($"Processing account {Path.GetFileNameWithoutExtension(transactionFile)}");
+                var transactions = await _csvDataIO.Read<TransactionDto>(
+                    new ReadRequest { ResourceLocator = transactionFile });
+
+                AllocateSubs(transactions, families);
+            }
+
+            var members = families
+                .SelectMany(f => f.Members)
+                .OrderBy(m => m.LastName);
+
+            foreach (var member in members)
+            {
+                AssignConfidenceToSubs(member.Subs);
+            }
+
+            Console.WriteLine("Creating output...");
+            _subsWriter.Write(new WriteRequest<IEnumerable<Member>>
+            {
+                Data = members,
+                ResourceLocator = OutputPath,
+                Errors = _errors
+            });
+
+
+            Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(OutputPath)}");
+
+            return null;
+        }
+
+        private void AllocateSubs(IEnumerable<TransactionDto> transactions, IEnumerable<Family> families)
+        {
+            var subs = _subscriptionsService.CreateSubscriptions(transactions, families.ToList());
 
             var subsByFamily = subs
                 .GroupBy(s => s.FamilyAllocation)
                 .ToDictionary(g => g.Key, g => g.ToList());
-            
+
             // var familyCount = families.Count();
 
             Console.WriteLine("Processing members...");
@@ -66,7 +111,10 @@ namespace SubsCheck.Services
                 var hasSubs = subsByFamily.TryGetValue(family.Id, out List<Subscription> familySubs);
                 if (!hasSubs) continue;
 
-                family.Subs = familySubs.OrderBy(s => s.Type).ToList();
+                family.Subs = familySubs
+                    .OrderBy(s => s.Type)
+                    .ThenByDescending(s => s.IsSubScore)
+                    .ToList();
 
                 foreach (var sub in family.Subs)
                 {
@@ -83,27 +131,6 @@ namespace SubsCheck.Services
                     }
                 }
             }
-
-            var members = families
-                .SelectMany(f => f.Members)
-                .OrderBy(m => m.LastName);
-
-            foreach (var member in members)
-            {
-                AssignConfidenceToSubs(member.Subs);
-            }
-
-            Console.WriteLine("Creating output...");
-            _subsWriter.Write(new WriteRequest<IEnumerable<Member>>
-            {
-                Data = members,
-                ResourceLocator = OutputPath
-            });
-
-
-            Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(OutputPath)}");
-
-            return null;
         }
 
         // TODO: Should this go in the subscriptions service?
@@ -157,15 +184,21 @@ namespace SubsCheck.Services
                 .ThenByDescending(x => x.Slot.Date)
                 .Take(paymentCount);
 
-            //if (selectedSlots.Count() < paymentCount)
-            //    _errors.Add(new Error
-            //    {
-            //        Description = "Unable to allocate full subscription",
-            //        Message = $"Sub for £{sub.Credit} " +
-            //            $"with reference {sub.Reference} could not be allocated to the " +
-            //            $"{selectedSlots.Count()} slots found for the " +
-            //            $"{family.Father.LastName} family"
-            //    });
+            if (selectedSlots.Count() < paymentCount)
+            {
+                var error = new Error
+                {
+                    Description = "Unable to allocate",
+                    Date = sub.Date,
+                    Credit = sub.Credit,
+                    AccountNumber = sub.AccountNumber,
+                    NotAllocated = sub.Credit - (selectedSlots.Count() * _config.SubsPrice),
+                    Reference = sub.Reference,
+                    Family = family.Father.LastName
+                };
+
+                _errors.Add(error);
+            }
 
             foreach (var (member, slot) in selectedSlots)
             {

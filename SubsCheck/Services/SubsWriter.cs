@@ -1,14 +1,22 @@
-﻿using System.Text.RegularExpressions;
+﻿using System;
+using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using SubsCheck.Extensions;
 using SubsCheck.Models;
+using SubsCheck.Models.IO.Input;
 using static SubsCheck.Models.Constants.Enums.AssignmentConfidence;
 
 namespace SubsCheck.Services;
 public class SubsWriter : ISubsWriter
 {
+    private readonly Configuration _config;
     private const string Unavailable = "-";
     private const string Unpaid = "x";
+
+    public SubsWriter(Configuration config)
+    {
+        _config = config;
+    }
 
     public void Write(WriteRequest<IEnumerable<Member>> request)
     {
@@ -18,6 +26,7 @@ public class SubsWriter : ISubsWriter
 
         var detailWorksheet = AddDetailWorksheet1(workbook, members);
         var summaryWorksheet = AddSummaryWorkSheet(workbook, detailWorksheet, members);
+        var errorsWorksheet = AddErrorsWorksheet(workbook, request.Errors);
 
         try
         {
@@ -29,6 +38,23 @@ public class SubsWriter : ISubsWriter
                 "An error has occurred, likely because the output document is still open. " +
                 "Please ensure the output document is closed and try again.");
         }
+    }
+
+    private IXLWorksheet AddErrorsWorksheet(XLWorkbook workbook, IEnumerable<Error> errors)
+    {
+        var ws = workbook.AddWorksheet("Notes");
+
+        var properties = typeof(Error).GetProperties();
+
+        for (var i = 0; i < properties.Length; i++)
+            ws.Cell(1, i + 1).SetValue(properties[i].Name);
+
+        ws.Cell(2, 1).InsertData(errors);
+
+        ApplySharedFormatting(ws);
+        ws.RangeUsed().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+        return ws;
     }
 
     private IXLWorksheet AddSummaryWorkSheet(XLWorkbook workbook, IXLWorksheet detailWorksheet, List<Member> members)
@@ -80,6 +106,10 @@ public class SubsWriter : ISubsWriter
             {
                 cell.SetValue($"{sub.Reference} (£{sub.Credit}) {sub.Date:dd/MM}");
                 FormatAssignmentConfidence(cell, sub);
+
+                // the csv column drops leading zeros
+                if (int.Parse(sub.AccountNumber) != int.Parse(_config.DefaultAccount))
+                    cell.Style.Font.SetFontColor(XLColor.Blue);
             }
         };
 

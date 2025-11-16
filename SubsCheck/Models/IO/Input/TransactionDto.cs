@@ -10,6 +10,9 @@ namespace SubsCheck.Models.IO.Input
         [Name("Transaction Type")]
         public string Type { get; set; }
 
+        [Name("Account Number")]
+        public string AccountNumber { get; set; }
+
         [Name("Transaction Description")]
         public string Reference { get; set; }
 

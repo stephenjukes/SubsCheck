@@ -21,7 +21,7 @@ namespace SubsCheck
 
             // TODO: DI
             var csvDataIO = new CsvDataIO();
-            var subsWriter = new SubsWriter();
+            var subsWriter = new SubsWriter(config);
             var dateService = new DateService();
             var memberService = new MemberService(config, dateService);
             var subscriptionsService = new SubscriptionsService(config, dateService);
