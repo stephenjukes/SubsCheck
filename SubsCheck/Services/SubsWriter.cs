@@ -1,14 +1,17 @@
-﻿using System;
-using System.Text.RegularExpressions;
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Bibliography;
 using SubsCheck.Extensions;
 using SubsCheck.Models;
 using SubsCheck.Models.IO.Input;
-using static SubsCheck.Models.Constants.Enums.AssignmentConfidence;
+using SubsCheck.Models.Constants.Enums;
 
 namespace SubsCheck.Services;
 public class SubsWriter : ISubsWriter
 {
+    private IXLWorksheet _detailWorksheet;
+    private IXLWorksheet _unallocatedWorksheet;
+    private IXLWorksheet _summaryWorksheet;
+
     private readonly Configuration _config;
     private const string Unavailable = "-";
     private const string Unpaid = "x";
@@ -24,10 +27,10 @@ public class SubsWriter : ISubsWriter
 
         using var workbook = new XLWorkbook();
 
-        var detailWorksheet = AddDetailWorksheet1(workbook, members);
-        var summaryWorksheet = AddSummaryWorkSheet(workbook, detailWorksheet, members);
-        var errorsWorksheet = AddErrorsWorksheet(workbook, request.Errors);
-
+        _detailWorksheet = AddDetailWorksheet1(workbook, members);
+        _unallocatedWorksheet = AddErrorsWorksheet(workbook, request.Errors);
+        _summaryWorksheet = AddSummaryWorkSheet(workbook, members);
+        
         try
         {
             workbook.SaveAs(request.ResourceLocator);
@@ -42,32 +45,46 @@ public class SubsWriter : ISubsWriter
 
     private IXLWorksheet AddErrorsWorksheet(XLWorkbook workbook, IEnumerable<Error> errors)
     {
-        var ws = workbook.AddWorksheet("Notes");
+        var ws = workbook.AddWorksheet("Unallocated");
 
         var properties = typeof(Error).GetProperties();
 
         for (var i = 0; i < properties.Length; i++)
             ws.Cell(1, i + 1).SetValue(properties[i].Name);
 
-        ws.Cell(2, 1).InsertData(errors);
+        // TODO: We should really be using PopulateData here
+        var row = 2;
+        var detailUsed = _detailWorksheet.RangeUsed();
+        var detailUsedAddress = detailUsed.RangeAddress.ToString();
+        foreach (var error in errors)
+        {
+            ws.Cell(row, 1).InsertData(new[] { error });
 
+            var referenceCount = $"=COUNTIF({_detailWorksheet.Name}!{detailUsedAddress}, \"{error.Reference}\")";
+            ws.Cell(row, properties.Length).FormulaA1 = referenceCount;
+
+            row++;
+        }
+
+        //ws.Cell(2, 1).InsertData(errors);
+        
         ApplySharedFormatting(ws);
         ws.RangeUsed().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
         return ws;
     }
 
-    private IXLWorksheet AddSummaryWorkSheet(XLWorkbook workbook, IXLWorksheet detailWorksheet, List<Member> members)
+    private IXLWorksheet AddSummaryWorkSheet(XLWorkbook workbook, List<Member> members)
     {
         var ws = workbook.AddWorksheet("Summary");
-        var range = detailWorksheet.RangeUsed();
+        var range = _detailWorksheet.RangeUsed();
 
         for (int row = 1; row <= range.RowCount(); row++)
         {
             for (int column = 1; column <= range.ColumnCount(); column++)
             {
-                var srcAddress = detailWorksheet.Cell(row, column).Address.ToStringRelative();
-                var srcValue = $"'{detailWorksheet.Name}'!{srcAddress}";
+                var srcAddress = _detailWorksheet.Cell(row, column).Address.ToStringRelative();
+                var srcValue = $"'{_detailWorksheet.Name}'!{srcAddress}";
 
                 ws.Cell(column, row).FormulaA1 = row > 1 && column > 1
                     ? ExtractDate(srcValue)
@@ -104,7 +121,9 @@ public class SubsWriter : ISubsWriter
             }
             else
             {
-                cell.SetValue($"{sub.Reference} (£{sub.Credit}) {sub.Date:dd/MM}");
+                var formattedReference = FormatReference(sub);
+                cell.SetValue(formattedReference);
+
                 FormatAssignmentConfidence(cell, sub);
 
                 // the csv column drops leading zeros
@@ -120,6 +139,9 @@ public class SubsWriter : ISubsWriter
 
         return ws;
     }
+
+    private string FormatReference(Subscription sub)
+        => $"{sub.Reference} (£{sub.Credit}) {sub.Date:dd/MM}";
 
     private IXLWorksheet PopulateData(
         IXLWorksheet ws, 
@@ -173,10 +195,10 @@ public class SubsWriter : ISubsWriter
 
     private void FormatAssignmentConfidence(IXLCell cell, Subscription sub)
     {
-        if (sub.AssignmentConfidence == Medium)
+        if (sub.AssignmentConfidence == AssignmentConfidence.Medium)
             cell.Style.Font.SetFontColor(XLColor.DarkOrange);
 
-        if (sub.AssignmentConfidence == Low)
+        if (sub.AssignmentConfidence == AssignmentConfidence.Low)
             cell.Style.Font.SetFontColor(XLColor.Red);
     }
 

@@ -5,15 +5,17 @@ public class Error
 
     public DateOnly Date { get; set; }
 
-    public decimal Credit { get; set; }
-
     public string AccountNumber { get; set; }
-
-    public decimal NotAllocated { get; set; }
-
-    public string Reference { get; set; }
 
     public string Family { get; set; }
 
-    public string Message { get; set; }
+    public string Reference { get; set; }
+
+    public decimal ReceivedCredit { get; set; }
+
+    public decimal AllocatedCredit { get; set; }
+
+    public decimal TotalSubs { get; set; }
+
+    public decimal AllocatedSubs { get; set; }
 }

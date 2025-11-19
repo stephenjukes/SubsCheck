@@ -54,11 +54,15 @@ namespace SubsCheck.Services
             var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = Inputs + "Members.csv" });
             var families = _memberService.CreateFamilies(memberDtos);
 
+            var allTransactions = new List<TransactionDto>();
+
             Console.WriteLine($"Processing account {_config.DefaultAccount}");
             var defaultAccountTransactions = await _csvDataIO.Read<TransactionDto>(
                 new ReadRequest { ResourceLocator = TransactionsDirectory + _config.DefaultAccount + ".csv" });
 
-            AllocateSubs(defaultAccountTransactions, families);
+            allTransactions.AddRange(defaultAccountTransactions);
+
+            //AllocateSubs(defaultAccountTransactions, families);
 
             var transactionFiles = Directory.GetFiles(TransactionsDirectory)
                 .Where(filename => Path.GetFileNameWithoutExtension(filename) != _config.DefaultAccount);
@@ -69,8 +73,12 @@ namespace SubsCheck.Services
                 var transactions = await _csvDataIO.Read<TransactionDto>(
                     new ReadRequest { ResourceLocator = transactionFile });
 
-                AllocateSubs(transactions, families);
+                allTransactions.AddRange(transactions);
+
+                //AllocateSubs(transactions, families);
             }
+
+            AllocateSubs(allTransactions, families);
 
             var members = families
                 .SelectMany(f => f.Members)
@@ -113,6 +121,7 @@ namespace SubsCheck.Services
 
                 family.Subs = familySubs
                     .OrderBy(s => s.Type)
+                    .ThenByDescending(s => int.Parse(s.AccountNumber) == int.Parse(_config.DefaultAccount))
                     .ThenByDescending(s => s.IsSubScore)
                     .ToList();
 
@@ -190,11 +199,13 @@ namespace SubsCheck.Services
                 {
                     Description = "Unable to allocate",
                     Date = sub.Date,
-                    Credit = sub.Credit,
                     AccountNumber = sub.AccountNumber,
-                    NotAllocated = sub.Credit - (selectedSlots.Count() * _config.SubsPrice),
+                    Family = family.Father.LastName,
                     Reference = sub.Reference,
-                    Family = family.Father.LastName
+                    ReceivedCredit = sub.Credit,
+                    AllocatedCredit = selectedSlots.Count() * _config.SubsPrice,
+                    TotalSubs = sub.Credit / _config.SubsPrice,
+                    AllocatedSubs = selectedSlots.Count()
                 };
 
                 _errors.Add(error);
