@@ -1,11 +1,8 @@
-﻿using System.Text.RegularExpressions;
-using System.Transactions;
-using DocumentFormat.OpenXml.Vml.Spreadsheet;
-using SubsCheck.Models;
+﻿using SubsCheck.Models;
 using SubsCheck.Models.Constants.Enums;
 using SubsCheck.Models.IO.Input;
-using SubsCheck.Models.IO.Output;
 using SubsCheck.Services.Interfaces;
+using static SubsCheck.Helpers.Helpers;
 
 namespace SubsCheck.Services
 {
@@ -197,15 +194,15 @@ namespace SubsCheck.Services
             {
                 var error = new Error
                 {
-                    Description = "Unable to allocate",
-                    Date = sub.Date,
+                    //Description = "Unable to allocate",
+                    //Date = sub.Date,
                     AccountNumber = sub.AccountNumber,
-                    Family = family.Father.LastName,
-                    Reference = sub.Reference,
-                    ReceivedCredit = sub.Credit,
-                    AllocatedCredit = selectedSlots.Count() * _config.SubsPrice,
+                    //Family = family.Father.LastName,
+                    Reference = FormatReference(sub.Reference, sub.Credit, sub.Date),
+                    //ReceivedCredit = sub.Credit,
+                    //UnallocatedCredit = paymentCount selectedSlots.Count() * _config.SubsPrice,
                     TotalSubs = sub.Credit / _config.SubsPrice,
-                    AllocatedSubs = selectedSlots.Count()
+                    //AllocatedSubs = selectedSlots.Count()
                 };
 
                 _errors.Add(error);

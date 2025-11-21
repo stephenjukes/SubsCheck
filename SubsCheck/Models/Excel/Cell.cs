@@ -1,4 +1,4 @@
-﻿namespace SubsCheck.Models
+﻿namespace SubsCheck.Models.Excel
 {
     public class Cell
     {

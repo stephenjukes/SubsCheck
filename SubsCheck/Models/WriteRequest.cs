@@ -6,5 +6,5 @@ public class WriteRequest<T>
 
     public string ResourceLocator { get; set; }
 
-    public IEnumerable<Error> Errors { get; set; }
+    public List<Error> Errors { get; set; }
 }

@@ -1,17 +1,17 @@
 ﻿using ClosedXML.Excel;
-using DocumentFormat.OpenXml.Bibliography;
+using SubsCheck.Constants.Enums;
 using SubsCheck.Extensions;
+using SubsCheck.Extensions.Excel;
 using SubsCheck.Models;
-using SubsCheck.Models.IO.Input;
 using SubsCheck.Models.Constants.Enums;
+using SubsCheck.Models.Excel;
+using SubsCheck.Models.IO.Input;
+using static SubsCheck.Constants.Excel;
+using static SubsCheck.Helpers.Helpers;
 
 namespace SubsCheck.Services;
 public class SubsWriter : ISubsWriter
 {
-    private IXLWorksheet _detailWorksheet;
-    private IXLWorksheet _unallocatedWorksheet;
-    private IXLWorksheet _summaryWorksheet;
-
     private readonly Configuration _config;
     private const string Unavailable = "-";
     private const string Unpaid = "x";
@@ -27,9 +27,14 @@ public class SubsWriter : ISubsWriter
 
         using var workbook = new XLWorkbook();
 
-        _detailWorksheet = AddDetailWorksheet1(workbook, members);
-        _unallocatedWorksheet = AddErrorsWorksheet(workbook, request.Errors);
-        _summaryWorksheet = AddSummaryWorkSheet(workbook, members);
+        Console.WriteLine($"Creating {WorksheetNames.Detail} worksheet...");
+        AddDetailWorksheet(workbook, members);
+
+        Console.WriteLine($"Creating {WorksheetNames.Unallocated} worksheet...");
+        AddUnallocatedWorksheet(workbook, request.Errors);
+
+        Console.WriteLine($"Creating {WorksheetNames.Summary} worksheet...");
+        AddSummaryWorkSheet(workbook, members);
         
         try
         {
@@ -43,48 +48,82 @@ public class SubsWriter : ISubsWriter
         }
     }
 
-    private IXLWorksheet AddErrorsWorksheet(XLWorkbook workbook, IEnumerable<Error> errors)
+    private static IXLWorksheet AddUnallocatedWorksheet(XLWorkbook workbook, List<Error> errors)
     {
-        var ws = workbook.AddWorksheet("Unallocated");
+        var ws = workbook.AddWorksheet(WorksheetNames.Unallocated);
 
-        var properties = typeof(Error).GetProperties();
+        var propertyNames = typeof(Error).GetProperties().Select(p => p.Name);
+        var addedColumns = Data.Columns.Detail;
 
-        for (var i = 0; i < properties.Length; i++)
-            ws.Cell(1, i + 1).SetValue(properties[i].Name);
+        var headers = propertyNames
+            .Concat(addedColumns.Select(c => c.Header))
+            .ToArray();
+
+        for (var i = 0; i < headers.Count(); i++)
+            ws.Cell(1, i + 1).SetValue(headers[i]);
 
         // TODO: We should really be using PopulateData here
-        var row = 2;
-        var detailUsed = _detailWorksheet.RangeUsed();
-        var detailUsedAddress = detailUsed.RangeAddress.ToString();
-        foreach (var error in errors)
+        var rowStart = 2;
+        for (var err = 0; err < errors.ToArray().Length; err++)
         {
+            var error = errors[err];
+            var row = err + rowStart;
             ws.Cell(row, 1).InsertData(new[] { error });
 
-            var referenceCount = $"=COUNTIF({_detailWorksheet.Name}!{detailUsedAddress}, \"{error.Reference}\")";
-            ws.Cell(row, properties.Length).FormulaA1 = referenceCount;
-
-            row++;
+            for (var col = 0; col < addedColumns.Length; col++)
+            {
+                var column = addedColumns[col];
+                var cell = ws.Cell(row, propertyNames.Count() + col + 1);
+                column.PopulateCell(cell, error.Reference, workbook);
+            }
         }
 
-        //ws.Cell(2, 1).InsertData(errors);
+        var addedColumnRange = ws.Range(
+            rowStart, 
+            propertyNames.Count(), 
+            errors.Count() + rowStart, 
+            propertyNames.Count() + headers.Length);
+
+        addedColumnRange.AddConditionalFormat<XLColor>(
+            (style, effect) => style.Fill.SetBackgroundColor(effect),
+            [
+                new (AllocationStatus.Allocated.ToString(),  XLColor.GrannySmithApple),
+                new (AllocationStatus.Dismiss.ToString(), XLColor.GrannySmithApple),
+                new (AllocationStatus.Resolved.ToString(), XLColor.GrannySmithApple),
+                new (AllocationStatus.Resolve.ToString(), XLColor.Orange),
+                new (AllocationStatus.OverAllocated.ToString(), XLColor.Red)
+            ]);
         
         ApplySharedFormatting(ws);
         ws.RangeUsed().Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
+        var statusColumn = ws.GetColumnByHeader(ColumnNames.Status);
+        var outcomeColumn = ws.GetColumnByHeader(ColumnNames.Outcome);
+        var notesColumn = ws.GetColumnByHeader(ColumnNames.Notes);
+
+        statusColumn.Width = 15;
+        outcomeColumn.Width = 15;
+        
+        ws.Protect();
+        Unprotect(outcomeColumn);
+        Unprotect(notesColumn);
+
         return ws;
     }
 
-    private IXLWorksheet AddSummaryWorkSheet(XLWorkbook workbook, List<Member> members)
+    private static IXLWorksheet AddSummaryWorkSheet(XLWorkbook workbook, List<Member> members)
     {
-        var ws = workbook.AddWorksheet("Summary");
-        var range = _detailWorksheet.RangeUsed();
+        var ws = workbook.AddWorksheet(WorksheetNames.Summary);
 
-        for (int row = 1; row <= range.RowCount(); row++)
+        var detailWorksheet = workbook.Worksheet(WorksheetNames.Detail);
+        var detailRange = detailWorksheet.RangeUsed();
+
+        for (int row = 1; row <= detailRange.RowCount(); row++)
         {
-            for (int column = 1; column <= range.ColumnCount(); column++)
+            for (int column = 1; column <= detailRange.ColumnCount(); column++)
             {
-                var srcAddress = _detailWorksheet.Cell(row, column).Address.ToStringRelative();
-                var srcValue = $"'{_detailWorksheet.Name}'!{srcAddress}";
+                var srcAddress = detailWorksheet.Cell(row, column).Address.ToStringRelative();
+                var srcValue = $"'{detailWorksheet.Name}'!{srcAddress}";
 
                 ws.Cell(column, row).FormulaA1 = row > 1 && column > 1
                     ? ExtractDate(srcValue)
@@ -93,17 +132,12 @@ public class SubsWriter : ISubsWriter
         }
 
         ApplySharedFormatting(ws);
+        ws.Protect();
 
         return ws;
     }
 
-    private string ExtractDate(string text)
-    {
-        var dateLength = 5; // dd/MM
-        return $"=RIGHT({text}, {dateLength})";
-    }
-
-    private IXLWorksheet AddDetailWorksheet1(XLWorkbook workbook, IEnumerable<Member> members)
+    private IXLWorksheet AddDetailWorksheet(XLWorkbook workbook, IEnumerable<Member> members)
     {
         var ws = workbook.AddWorksheet("Detail");
 
@@ -121,7 +155,7 @@ public class SubsWriter : ISubsWriter
             }
             else
             {
-                var formattedReference = FormatReference(sub);
+                var formattedReference = FormatReference(sub.Reference, sub.Credit, sub.Date);
                 cell.SetValue(formattedReference);
 
                 FormatAssignmentConfidence(cell, sub);
@@ -140,10 +174,7 @@ public class SubsWriter : ISubsWriter
         return ws;
     }
 
-    private string FormatReference(Subscription sub)
-        => $"{sub.Reference} (£{sub.Credit}) {sub.Date:dd/MM}";
-
-    private IXLWorksheet PopulateData(
+    private static IXLWorksheet PopulateData(
         IXLWorksheet ws, 
         IEnumerable<Member> members, 
         Action<Cell> advanceDate,
@@ -219,8 +250,6 @@ public class SubsWriter : ISubsWriter
         range.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
         range.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
         
-        ws.Columns().AdjustToContents();
-
         ws.Row(1).Style.Font.SetBold();
         ws.Column(1).Style.Font.SetBold();
         ws.Column(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
@@ -236,5 +265,17 @@ public class SubsWriter : ISubsWriter
             .WhenEquals(Unavailable)
             .Fill.SetBackgroundColor(XLColor.LightGray)
             .Font.SetFontColor(XLColor.LightGray);
+
+        ws.Columns().AdjustToContents();
+    }
+
+    private static void Unprotect(IXLColumn column)
+        => column.Style.Protection.SetLocked(false);
+
+    private static string ExtractDate(string text)
+    {
+        // arguably better to use regex, but excel and odf do not use the same syntax
+        var shortDateLength = 5; // dd/MM
+        return $"=LEFT({text}, {shortDateLength})";
     }
 }

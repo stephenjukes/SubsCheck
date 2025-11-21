@@ -16,7 +16,7 @@ namespace SubsCheck
                 ReferenceMatchScore = 0,
                 CheckSplitWordsOnly = csvMember.CheckSplitWordsOnly ?? false,
                 Subs = [],
-                Slots = [] // TODO: Populate
+                Slots = []
             };
         }
 

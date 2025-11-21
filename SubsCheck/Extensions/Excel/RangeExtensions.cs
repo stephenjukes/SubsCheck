@@ -1,0 +1,18 @@
+﻿using ClosedXML.Excel;
+using SubsCheck.Models.Excel;
+
+namespace SubsCheck.Extensions.Excel
+{
+    public static class RangeExtensions
+    {
+        public static void AddConditionalFormat<T>(this IXLRangeBase range, 
+            Action<IXLStyle, T> render, IEnumerable<ConditionalFormatParameters<T>> parameterSets)
+        {
+            foreach (var parameterSet in parameterSets)
+            {
+                var style = range.AddConditionalFormat().WhenEquals(parameterSet.Cause);
+                render(style, parameterSet.Effect);
+            }
+        }
+    }
+}

@@ -2,6 +2,21 @@
 using SubsCheck.Services;
 using System.Text.Json;
 
+// TODO:
+// DI
+// Put inputs out outputs folders into an IO folder
+// Try to get an absolute path to the inputs and outputs folder
+// Take maximum transaction range, (at least 6 months before and after desired range)
+// Change Error class to Unallocated
+// Clarify in excel which columns are readonly and which can be updated
+// Add in the beaver start and end dates if available
+
+// Unallocated tab
+    // Decide on another first column in Unallocated
+    // Centralise text in the 4 added columns
+    // Format other accounts in blue
+    // add a comment to prompt notes depending on the outcome
+
 namespace SubsCheck
 {
     public class Program
