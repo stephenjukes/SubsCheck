@@ -25,8 +25,8 @@ public class SubscriptionsService : ISubscriptionsService
     {
         var subs = transactions
             .Where(t =>
-                t.Date >= _config.Start &&
-                t.Date <= _config.End &&
+                //t.Date >= _config.Start &&
+                //t.Date <= _config.End &&
                 t.Credit is not null &&
                 t.Credit % _config.SubsPrice == 0 &&
                 !_config.NonSubsFlags.Any(flag => t.Reference.Contains(flag, StringComparison.OrdinalIgnoreCase)))

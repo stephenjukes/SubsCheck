@@ -32,7 +32,11 @@ public class SubsWriter : ISubsWriter
         
         try
         {
+            Console.WriteLine("Generating file...");
+
             workbook.SaveAs(request.ResourceLocator);
+
+            Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(request.ResourceLocator)}");
         }
         catch (Exception)
         {

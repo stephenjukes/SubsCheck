@@ -31,7 +31,7 @@ namespace SubsCheck.Services.ExcelWriters
             Console.WriteLine($"Creating {name} worksheet...");
             _ws = workbook.AddWorksheet(name);
 
-            //_ws.Protect();
+            _ws.Protect();
             PopulateData(workbook, data);
             ApplySharedFormatting();
             StyleData(data);
