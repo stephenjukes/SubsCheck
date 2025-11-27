@@ -14,17 +14,11 @@ namespace SubsCheck.Services
         private readonly IDateService _dateService;
         private readonly IDataIO _csvDataIO;
         private readonly ISubsWriter _subsWriter;
-        private readonly List<Error> _errors = [];
+        private readonly List<UnallocatedSub> _unallocated = [];
 
-        private static readonly string BaseFile = "./../../../";
-        private static readonly string Inputs = BaseFile + "Inputs/";
-        private static readonly string TransactionsDirectory = Inputs + "Transactions/";
-        private static readonly string Outputs = BaseFile + "Outputs/";
-
-        private static readonly string IsDefaultAccount = "isDefaultAccount";
-        private static readonly string IsNotDefaultAccount = "isNotDefaultAccount";
-
-        private static readonly string OutputPath = Outputs + "Subs.xlsx";
+        private readonly IEnumerable<string> _inputFiles;
+        private readonly IEnumerable<string> _transactionFiles;
+        private readonly string _outputPath;
 
         public SubsService(
             Configuration config, 
@@ -40,29 +34,39 @@ namespace SubsCheck.Services
             _memberService = memberService;
             _subscriptionsService = subscriptionsService;
             _dateService = dateService;
+
+            var root = ".\\..\\..\\..\\";
+            var ioDirectory = Directory.GetDirectories(root, "IO", SearchOption.AllDirectories).FirstOrDefault();
+
+            var inputsDirectory = Directory.GetDirectories(ioDirectory, "Inputs", SearchOption.AllDirectories).FirstOrDefault();
+            _inputFiles = Directory.GetFiles(inputsDirectory);
+
+            var transactionsPath = Path.Combine(inputsDirectory, "Transactions");
+            _transactionFiles = Directory.GetFiles(transactionsPath);
+
+            _outputPath = Path.Combine(ioDirectory, "Outputs", "Subs.xlsx");
         }
 
         public async Task<IEnumerable<MemberInput>> CalculateSubs()
         {
-            Console.WriteLine("Processing started ...");
-            var errors = new List<Error>();
-
             Console.WriteLine("Getting members ...");
-            var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = Inputs + "Members.csv" });
+            var membersFile = _inputFiles.FirstOrDefault(f => Path.GetFileName(f) == "Members.csv");
+            var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = membersFile});
             var families = _memberService.CreateFamilies(memberDtos);
 
             var allTransactions = new List<TransactionDto>();
 
             Console.WriteLine($"Processing account {_config.DefaultAccount}");
+            var defaultTransactionsFile = _transactionFiles
+                .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f) == _config.DefaultAccount);
+            
             var defaultAccountTransactions = await _csvDataIO.Read<TransactionDto>(
-                new ReadRequest { ResourceLocator = TransactionsDirectory + _config.DefaultAccount + ".csv" });
+                new ReadRequest { ResourceLocator = defaultTransactionsFile});
 
             allTransactions.AddRange(defaultAccountTransactions);
 
-            //AllocateSubs(defaultAccountTransactions, families);
-
-            var transactionFiles = Directory.GetFiles(TransactionsDirectory)
-                .Where(filename => Path.GetFileNameWithoutExtension(filename) != _config.DefaultAccount);
+            var transactionFiles = _transactionFiles
+                .Where(f => Path.GetFileNameWithoutExtension(f) != _config.DefaultAccount);
             
             foreach (var transactionFile in transactionFiles)
             {
@@ -71,8 +75,6 @@ namespace SubsCheck.Services
                     new ReadRequest { ResourceLocator = transactionFile });
 
                 allTransactions.AddRange(transactions);
-
-                //AllocateSubs(transactions, families);
             }
 
             AllocateSubs(allTransactions, families);
@@ -87,15 +89,14 @@ namespace SubsCheck.Services
             }
 
             Console.WriteLine("Creating output...");
-            _subsWriter.Write(new WriteRequest<IEnumerable<Member>>
+            _subsWriter.Write(new WriteRequest<Member, UnallocatedSub>
             {
                 Data = members,
-                ResourceLocator = OutputPath,
-                Errors = _errors
+                ResourceLocator = _outputPath,
+                Errors = _unallocated
             });
 
-
-            Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(OutputPath)}");
+            Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(_outputPath)}");
 
             return null;
         }
@@ -107,8 +108,6 @@ namespace SubsCheck.Services
             var subsByFamily = subs
                 .GroupBy(s => s.FamilyAllocation)
                 .ToDictionary(g => g.Key, g => g.ToList());
-
-            // var familyCount = families.Count();
 
             Console.WriteLine("Processing members...");
             foreach (var family in families)
@@ -177,7 +176,7 @@ namespace SubsCheck.Services
             foreach (var member in family.Members)
                 member.ReferenceMatchScore = _subscriptionsService.AssignReferenceMatchScore(member, sub.Reference);
 
-            var paymentCount = (int)(sub.Credit / _config.SubsPrice);
+            //var paymentCount = (int)(sub.Credit / _config.SubsPrice);
 
             var selectedSlots = family.Members
                 .SelectMany(m => m.Slots, (m, slot) => (Member: m, Slot: slot))
@@ -188,24 +187,19 @@ namespace SubsCheck.Services
                     x.Slot.Date <= sub.Date)
                 .OrderByDescending(x => x.Member.ReferenceMatchScore)
                 .ThenByDescending(x => x.Slot.Date)
-                .Take(paymentCount);
+                .Take(sub.SubsCount);
 
-            if (selectedSlots.Count() < paymentCount)
+            if (selectedSlots.Count() < sub.SubsCount)
             {
-                var error = new Error
+                var unallocated = new UnallocatedSub
                 {
-                    //Description = "Unable to allocate",
-                    //Date = sub.Date,
+                    Date = sub.Date,
                     AccountNumber = sub.AccountNumber,
-                    //Family = family.Father.LastName,
                     Reference = FormatReference(sub.Reference, sub.Credit, sub.Date),
-                    //ReceivedCredit = sub.Credit,
-                    //UnallocatedCredit = paymentCount selectedSlots.Count() * _config.SubsPrice,
                     TotalSubs = sub.Credit / _config.SubsPrice,
-                    //AllocatedSubs = selectedSlots.Count()
                 };
 
-                _errors.Add(error);
+                _unallocated.Add(unallocated);
             }
 
             foreach (var (member, slot) in selectedSlots)

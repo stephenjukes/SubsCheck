@@ -3,7 +3,7 @@
 namespace SubsCheck.Services.Interfaces;
 public interface IDataIO
 {
-    Task<IEnumerable<T>> Read<T>(ReadRequest request);
+    Task<IEnumerable<TData>> Read<TData>(ReadRequest request);
 
-    void Write<T>(WriteRequest<T> request);
+    void Write<TData, TError>(WriteRequest<TData, TError> request);
 }

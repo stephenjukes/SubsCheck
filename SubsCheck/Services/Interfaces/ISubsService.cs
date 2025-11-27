@@ -1,6 +1,6 @@
 ﻿using SubsCheck.Models.IO.Input;
 
-namespace SubsCheck.Services.Interfaces
+namespace SubsCheck.Services
 {
     public interface ISubsService
     {

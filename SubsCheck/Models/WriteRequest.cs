@@ -1,10 +1,10 @@
 ﻿namespace SubsCheck.Models;
 
-public class WriteRequest<T>
+public class WriteRequest<TData, TError>
 {
-    public T Data { get; set; }
+    public IEnumerable<TData> Data { get; set; }
 
     public string ResourceLocator { get; set; }
 
-    public List<Error> Errors { get; set; }
+    public List<TError> Errors { get; set; }
 }

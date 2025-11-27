@@ -14,8 +14,6 @@
 
         public static class ColumnNames
         {
-            public const string TotalSubs = "Total Subs";
-
             public const string Allocated = "Allocated";
 
             public const string Status = "Status";

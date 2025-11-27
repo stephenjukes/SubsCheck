@@ -19,7 +19,7 @@ public class CsvDataIO : IDataIO
         return enitities;
     }
 
-    public void Write<T>(WriteRequest<T> request)
+    public void Write<TData, TError>(WriteRequest<TData, TError> request)
     {
         throw new NotImplementedException();
     }

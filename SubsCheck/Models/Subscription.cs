@@ -10,4 +10,6 @@ public class Subscription : Transaction
     public AssignmentConfidence AssignmentConfidence { get; set; }
 
     public SubscriptionType Type { get; set; }
+
+    public int SubsCount { get; set; }
 }

@@ -3,19 +3,23 @@ using SubsCheck.Services;
 using System.Text.Json;
 
 // TODO:
-// DI
-// Put inputs out outputs folders into an IO folder
-// Try to get an absolute path to the inputs and outputs folder
-// Take maximum transaction range, (at least 6 months before and after desired range)
-// Change Error class to Unallocated
-// Clarify in excel which columns are readonly and which can be updated
-// Add in the beaver start and end dates if available
+
+// DONE Put inputs out outputs folders into an IO folder
+// DONE Try to get an absolute path to the inputs and outputs folder
+//      Take maximum transaction range, (at least 6 months before and after desired range)
+// DONE Change Error class to Unallocated
+// DONE Clarify in excel which columns are readonly and which can be updated
+//      Add in the beaver start and end dates if available
+//      Deal with warnings (deference of a possibly null reference)
 
 // Unallocated tab
-    // Decide on another first column in Unallocated
-    // Centralise text in the 4 added columns
-    // Format other accounts in blue
-    // add a comment to prompt notes depending on the outcome
+// DONE Decide on another first column in Unallocated
+// DONE Centralise text in the 4 added columns
+// DONE centralise row start variable
+// INGORE add a comment to prompt notes depending on the outcome
+
+// README
+// DI
 
 namespace SubsCheck
 {
@@ -23,18 +27,18 @@ namespace SubsCheck
     {
         static async Task Main(string[] args)
         {
-            var basePath = "./../../../";
-            var inputs = basePath + "Inputs/";
-            var membersFile = inputs + "Members.csv";
-            var transactionsFile = inputs + "Transactions.csv";
-            var configFile = inputs + "config.json";
+            var root = ".\\..\\..\\..\\";
+            var inputs = Directory
+                .GetDirectories(root, "Inputs", SearchOption.AllDirectories)
+                .FirstOrDefault();
 
-            // TODO: DI
-            // TODO: Can this be done via Startup?
+            var configFile = Directory
+                .GetFiles(inputs, "config.json", SearchOption.AllDirectories)
+                .FirstOrDefault();
+               
             var configString = await File.ReadAllTextAsync(configFile);
             var config = JsonSerializer.Deserialize<Configuration>(configString);
 
-            // TODO: DI
             var csvDataIO = new CsvDataIO();
             var subsWriter = new SubsWriter(config);
             var dateService = new DateService();
@@ -42,8 +46,7 @@ namespace SubsCheck
             var subscriptionsService = new SubscriptionsService(config, dateService);
 
             var subsService = new SubsService(config, csvDataIO, subsWriter, memberService, subscriptionsService, dateService);
-
-            var subsAllocatedMembers = await subsService.CalculateSubs();
+            _ = await subsService.CalculateSubs();
         }
     }
 }

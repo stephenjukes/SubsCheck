@@ -61,13 +61,16 @@ public class SubscriptionsService : ISubscriptionsService
             .OrderBy(s => s.Date);
     }
 
-    private  static Subscription ToSubscription(TransactionDto csvTransaction)
+    private Subscription ToSubscription(TransactionDto csvTransaction)
     {
+        var credit = csvTransaction.Credit ?? 0;
+
         return new Subscription
         {
             Date = csvTransaction.Date,
             AccountNumber = csvTransaction.AccountNumber,
-            Credit = csvTransaction.Credit ?? 0,
+            Credit = credit,
+            SubsCount = (int)(credit / _config.SubsPrice),
             Reference = Regex.Match(csvTransaction.Reference, @"(.*?)\s*(?=\s+\S*\d{3}|$)").Groups[1].Value.ToLower()
             // the regex removes the long alphanumeric strings and anything after from the reference
         };
