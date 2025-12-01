@@ -4,6 +4,8 @@
     {
         public static class WorksheetNames
         {
+            public const string Key = "Key";
+
             public const string Detail = "Detail";
 
             public const string Unallocated = "Unallocated";

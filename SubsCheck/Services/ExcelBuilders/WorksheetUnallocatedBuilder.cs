@@ -91,9 +91,6 @@ namespace SubsCheck.Services.ExcelWriters
                 column.Width = 15;
 
             notesColumn.Width = 50;
-
-            foreach (var column in new IXLColumn[] { outcomeColumn, notesColumn })
-                column.Style.Protection.SetLocked(false);
         }
 
         private static Column[] AddedColumns()
@@ -163,6 +160,18 @@ namespace SubsCheck.Services.ExcelWriters
 
                 new Column(ColumnNames.Notes, (cell, value, ws) => { })
             ];
+        }
+
+        protected override void UnprotectRange()
+        {
+            var columnsToUnprotect = new IXLColumn[]
+            {
+                GetColumnByHeader(ColumnNames.Outcome),
+                GetColumnByHeader(ColumnNames.Notes)
+            };
+
+            foreach (var column in columnsToUnprotect)
+                column.Style.Protection.SetLocked(false);
         }
     }
 }

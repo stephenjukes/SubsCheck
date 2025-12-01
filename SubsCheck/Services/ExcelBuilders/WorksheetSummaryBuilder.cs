@@ -34,15 +34,18 @@ namespace SubsCheck.Services.ExcelWriters
         }
 
         protected override void StyleData<T>(List<T> data)
-        {
-            DataRangeUsed().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-        }
+            => DataRangeUsed().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
 
         private static string ExtractDate(string text)
         {
             // arguably better to use regex, but xls and ods do not use the same syntax
             var shortDateLength = 5; // dd/MM
             return $"=LEFT({text}, {shortDateLength})";
+        }
+
+        protected override void UnprotectRange()
+        {
+            // leave as readonly
         }
     }
 }

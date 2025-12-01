@@ -55,14 +55,6 @@ namespace SubsCheck.Services.ExcelWriters
             return columnGroups;
         }
 
-        protected override void StyleData<T>(List<T> data)
-        {
-            var dataUsed = DataRangeUsed();
-
-            DataRangeUsed().Style.Protection.SetLocked(false);
-            DataRangeUsed().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-        }
-
         private static void FormatAssignmentConfidence(IXLCell cell, Subscription sub)
         {
             if (sub.AssignmentConfidence == AssignmentConfidence.Medium)
@@ -71,5 +63,11 @@ namespace SubsCheck.Services.ExcelWriters
             if (sub.AssignmentConfidence == AssignmentConfidence.Low)
                 cell.Style.Font.SetFontColor(XLColor.Red);
         }
+
+        protected override void StyleData<T>(List<T> data)
+            => DataRangeUsed().Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+
+        protected override void UnprotectRange()
+            => DataRangeUsed().Style.Protection.SetLocked(false);
     }
 }

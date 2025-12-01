@@ -35,6 +35,7 @@ namespace SubsCheck.Services.ExcelWriters
             PopulateData(workbook, data);
             ApplySharedFormatting();
             StyleData(data);
+            UnprotectRange();
             AddProtectionStatusBanner();
             
             return _ws;
@@ -43,6 +44,8 @@ namespace SubsCheck.Services.ExcelWriters
         protected abstract void PopulateData<T>(XLWorkbook workbook, List<T> data);
 
         protected abstract void StyleData<T>(List<T> data);
+
+        protected abstract void UnprotectRange();
 
         private ProtectionStatus GetReadWriteStatus(IEnumerable<IXLCell> cells)
         {
@@ -125,7 +128,7 @@ namespace SubsCheck.Services.ExcelWriters
                     .Value = group.First().ProtectionStatus.ToString();
             }
 
-            //// TODO: Try to separate styling from here
+            // TODO: Try to separate styling from here
             _ws.Row(1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
         }
 

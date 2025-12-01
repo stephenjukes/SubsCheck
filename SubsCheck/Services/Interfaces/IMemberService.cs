@@ -7,6 +7,4 @@ public interface IMemberService
     List<Family> CreateFamilies(IEnumerable<MemberInput> members);
 
     List<Slot> CreateSlots(DateOnly start, DateOnly end, Member member);
-
-
 }
