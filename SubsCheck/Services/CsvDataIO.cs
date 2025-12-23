@@ -12,6 +12,8 @@ public class CsvDataIO : IDataIO
         // this should really go in config
         var gbConfig = new CsvConfiguration(CultureInfo.GetCultureInfo("en-GB"));
 
+        Console.WriteLine($"Reading from {Path.GetFileName(request.ResourceLocator)}");
+
         using var reader = new StreamReader(request.ResourceLocator);
         using var csv = new CsvReader(reader, gbConfig);
         var enitities = await csv.GetRecordsAsync<T>().ToListAsync();

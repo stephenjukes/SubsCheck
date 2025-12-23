@@ -73,12 +73,12 @@ namespace SubsCheck.Services.ExcelWriters
 
             rangeUsed.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
 
-            var accountNumberColumn = GetColumnByHeader(nameof(UnallocatedSub.AccountNumber));
-            var totalSubsColumn = GetColumnByHeader(nameof(UnallocatedSub.TotalSubs));
-            var allocatedColumn = GetColumnByHeader(ColumnNames.Allocated);
-            var statusColumn = GetColumnByHeader(ColumnNames.Status);
-            var outcomeColumn = GetColumnByHeader(ColumnNames.Outcome);
-            var notesColumn = GetColumnByHeader(ColumnNames.Notes);
+            var accountNumberColumn = _ws.GetColumnByValue(nameof(UnallocatedSub.AccountNumber));
+            var totalSubsColumn = _ws.GetColumnByValue(nameof(UnallocatedSub.TotalSubs));
+            var allocatedColumn = _ws.GetColumnByValue(ColumnNames.Allocated);
+            var statusColumn = _ws.GetColumnByValue(ColumnNames.Status);
+            var outcomeColumn = _ws.GetColumnByValue(ColumnNames.Outcome);
+            var notesColumn = _ws.GetColumnByValue(ColumnNames.Notes);
 
             DataRangeUsed().AddConditionalFormat()
                 .WhenIsTrue($"=$B{DataRowStart}<>\"{_config.DefaultAccount.TrimStart('0')}\"")
@@ -91,9 +91,8 @@ namespace SubsCheck.Services.ExcelWriters
                 column.Width = 15;
 
             notesColumn.Width = 50;
-
-            foreach (var column in new IXLColumn[] { outcomeColumn, notesColumn })
-                column.Style.Protection.SetLocked(false);
+            notesColumn.Style.Font.SetItalic();
+            notesColumn.Style.Font.SetFontColor(XLColor.Blue);
         }
 
         private static Column[] AddedColumns()
@@ -163,6 +162,18 @@ namespace SubsCheck.Services.ExcelWriters
 
                 new Column(ColumnNames.Notes, (cell, value, ws) => { })
             ];
+        }
+
+        protected override void UnprotectRange()
+        {
+            var columnsToUnprotect = new IXLColumn[]
+            {
+                _ws.GetColumnByValue(ColumnNames.Outcome),
+                _ws.GetColumnByValue(ColumnNames.Notes)
+            };
+
+            foreach (var column in columnsToUnprotect)
+                column.Style.Protection.SetLocked(false);
         }
     }
 }

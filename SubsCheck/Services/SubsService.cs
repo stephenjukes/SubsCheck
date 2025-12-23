@@ -1,5 +1,5 @@
-﻿using SubsCheck.Models;
-using SubsCheck.Models.Constants.Enums;
+﻿using SubsCheck.Constants.Enums;
+using SubsCheck.Models;
 using SubsCheck.Models.IO.Input;
 using SubsCheck.Services.Interfaces;
 using static SubsCheck.Helpers.Helpers;
@@ -36,7 +36,7 @@ namespace SubsCheck.Services
             _dateService = dateService;
 
             var root = ".\\..\\..\\..\\";
-            var ioDirectory = Directory.GetDirectories(root, "IO", SearchOption.AllDirectories).FirstOrDefault();
+            var ioDirectory = Directory.GetDirectories(root, "Data", SearchOption.AllDirectories).FirstOrDefault();
 
             var inputsDirectory = Directory.GetDirectories(ioDirectory, "Inputs", SearchOption.AllDirectories).FirstOrDefault();
             _inputFiles = Directory.GetFiles(inputsDirectory);
@@ -44,41 +44,36 @@ namespace SubsCheck.Services
             var transactionsPath = Path.Combine(inputsDirectory, "Transactions");
             _transactionFiles = Directory.GetFiles(transactionsPath);
 
-            _outputPath = Path.Combine(ioDirectory, "Outputs", "Subs.xlsx");
+            var datetimeString = DateTime.Now.ToString("yyyyMMdd_hhmmss");
+            _outputPath = Path.Combine(ioDirectory, "Outputs", $"Subs_{datetimeString}.xlsx");
         }
 
-        public async Task<IEnumerable<MemberInput>> CalculateSubs()
+        public async Task CalculateSubs()
         {
-            Console.WriteLine("Getting members ...");
-            var membersFile = _inputFiles.FirstOrDefault(f => Path.GetFileName(f) == "Members.csv");
-            var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = membersFile});
+            var memberDtos = await GetMembers();
             var families = _memberService.CreateFamilies(memberDtos);
 
-            var allTransactions = new List<TransactionDto>();
+            var transactions = await GetTransactions();
+            var subs = _subscriptionsService.CreateSubscriptions(transactions, families.ToList());
 
-            Console.WriteLine($"Processing account {_config.DefaultAccount}");
-            var defaultTransactionsFile = _transactionFiles
-                .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f) == _config.DefaultAccount);
-            
-            var defaultAccountTransactions = await _csvDataIO.Read<TransactionDto>(
-                new ReadRequest { ResourceLocator = defaultTransactionsFile});
+            foreach (var member in families.SelectMany(f => f.Members))
+                member.Slots = _memberService.CreateSlots(subs.First().Date, subs.Last().Date, member);
 
-            allTransactions.AddRange(defaultAccountTransactions);
+            AllocateSubs(subs, families);
 
-            var transactionFiles = _transactionFiles
-                .Where(f => Path.GetFileNameWithoutExtension(f) != _config.DefaultAccount);
-            
-            foreach (var transactionFile in transactionFiles)
+            var members = PrepareMembersForDisplay(families);
+            _unallocated.RemoveAll(u => u.Date < _config.Start || u.Date > _config.End);
+
+            _subsWriter.Write(new WriteRequest<Member, UnallocatedSub>
             {
-                Console.WriteLine($"Processing account {Path.GetFileNameWithoutExtension(transactionFile)}");
-                var transactions = await _csvDataIO.Read<TransactionDto>(
-                    new ReadRequest { ResourceLocator = transactionFile });
+                Data = members,
+                ResourceLocator = _outputPath,
+                Errors = _unallocated
+            });
+        }
 
-                allTransactions.AddRange(transactions);
-            }
-
-            AllocateSubs(allTransactions, families);
-
+        private IEnumerable<Member> PrepareMembersForDisplay(List<Family> families)
+        {
             var members = families
                 .SelectMany(f => f.Members)
                 .OrderBy(m => m.LastName);
@@ -86,25 +81,36 @@ namespace SubsCheck.Services
             foreach (var member in members)
             {
                 AssignConfidenceToSubs(member.Subs);
+                member.Slots.RemoveAll(s => s.Date < _config.Start || s.Date > _config.End);
             }
 
-            Console.WriteLine("Creating output...");
-            _subsWriter.Write(new WriteRequest<Member, UnallocatedSub>
-            {
-                Data = members,
-                ResourceLocator = _outputPath,
-                Errors = _unallocated
-            });
-
-            Console.WriteLine($"File generated. \n\nYou can view the generated file at {Path.GetFullPath(_outputPath)}");
-
-            return null;
+            return members;
         }
 
-        private void AllocateSubs(IEnumerable<TransactionDto> transactions, IEnumerable<Family> families)
+        private async Task<IEnumerable<TransactionDto>> GetTransactions()
         {
-            var subs = _subscriptionsService.CreateSubscriptions(transactions, families.ToList());
+            var allTransactions = new List<TransactionDto>();
+            foreach (var transactionFile in _transactionFiles)
+            {
+                var transactions = await _csvDataIO.Read<TransactionDto>(
+                    new ReadRequest { ResourceLocator = transactionFile });
 
+                allTransactions.AddRange(transactions);
+            }
+
+            return allTransactions;
+        }
+
+        private async Task<IEnumerable<MemberInput>> GetMembers()
+        {
+            var membersFile = _inputFiles.FirstOrDefault(f => Path.GetFileName(f) == "Members.csv");
+            var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = membersFile });
+
+            return memberDtos;
+        }
+
+        private void AllocateSubs(IEnumerable<Subscription> subs, IEnumerable<Family> families)
+        {
             var subsByFamily = subs
                 .GroupBy(s => s.FamilyAllocation)
                 .ToDictionary(g => g.Key, g => g.ToList());
@@ -118,12 +124,13 @@ namespace SubsCheck.Services
                 family.Subs = familySubs
                     .OrderBy(s => s.Type)
                     .ThenByDescending(s => int.Parse(s.AccountNumber) == int.Parse(_config.DefaultAccount))
+                    //.ThenBy(s => s.Date) // removing this seems to help ensure the correct subs are allocated
                     .ThenByDescending(s => s.IsSubScore)
                     .ToList();
 
                 foreach (var sub in family.Subs)
                 {
-                    // TODO: is there a better way to do this?
+                    // TODO: can we use polymorphism for this?
                     switch (sub.Type)
                     {
                         case SubscriptionType.Backdated:
@@ -144,7 +151,7 @@ namespace SubsCheck.Services
             if (!subs.Any()) return;
 
             var referenceGroups = subs
-                .GroupBy(s => s.Reference) // Regex.Match(s.Reference, @"(.*?)\s*(?=\s+\S*\d{3}|$)").Groups[1].Value)
+                .GroupBy(s => s.Reference)
                 .OrderByDescending(group => group.Count());
 
             var modelReference = referenceGroups.First();
@@ -167,16 +174,12 @@ namespace SubsCheck.Services
         }
 
         private void AllocateSubToMember(
-            Subscription sub, 
-            Family family, 
-            Func<(Member Member, Slot Slot), bool>? isRequiredSlot = null)
+            Subscription sub, Family family, Func<(Member Member, Slot Slot), bool>? isRequiredSlot = null)
         {
             isRequiredSlot ??= x => true;
 
             foreach (var member in family.Members)
                 member.ReferenceMatchScore = _subscriptionsService.AssignReferenceMatchScore(member, sub.Reference);
-
-            //var paymentCount = (int)(sub.Credit / _config.SubsPrice);
 
             var selectedSlots = family.Members
                 .SelectMany(m => m.Slots, (m, slot) => (Member: m, Slot: slot))

@@ -16,10 +16,6 @@ public class MemberService : IMemberService
 
     public List<Family> CreateFamilies(IEnumerable<MemberInput> members)
     {
-        var slots = _dateService.GetMonthRange(_config.Start, _config.End)
-            .Select(date => new Slot { Date = date })
-            .ToList();
-
         var families = members
             .Where(m =>
                 m.Start <= _config.End &&
@@ -37,7 +33,6 @@ public class MemberService : IMemberService
                     Start = m.Start,
                     End = m.End,
                     CheckSplitWordsOnly = m.CheckSplitWordsOnly ?? false,
-                    Slots = CreateSlots(m)
                 }).ToList(),
                 CheckSplitWordsOnly = family.Any(m => m.CheckSplitWordsOnly ?? false)
             })
@@ -46,12 +41,12 @@ public class MemberService : IMemberService
         return families;
     }
 
-    private List<Slot> CreateSlots(MemberInput member)
+    public List<Slot> CreateSlots(DateOnly start, DateOnly end, Member member)
     {
-        return _dateService.GetMonthRange(_config.Start, _config.End)
+        return _dateService.GetMonthRange(start, end)
             .Select(date => new Slot 
                 { 
-                    Date = date,
+                    Date = new DateOnly(date.Year, date.Month, 1),
                     IsAvailable = date >= member.Start && (member.End is null || date <= member.End),
                 })
             .ToList();

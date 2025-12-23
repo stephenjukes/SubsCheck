@@ -1,4 +1,4 @@
-﻿namespace SubsCheck.Models.Constants.Enums;
+﻿namespace SubsCheck.Constants.Enums;
 public enum SubscriptionType
 {
     // The order of these are significant, since subs will be processed in this order

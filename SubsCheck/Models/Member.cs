@@ -10,7 +10,7 @@ namespace SubsCheck.Models
 
         public bool CheckSplitWordsOnly { get; set; }
 
-        public IEnumerable<Slot> Slots { get; set; } = [];
+        public List<Slot> Slots { get; set; } = [];
 
         public List<Subscription> Subs { get; set; } = [];
 

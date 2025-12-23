@@ -1,0 +1,11 @@
+{
+  "SubsPrice": 10,
+  "Start": "2024-04-01",
+  "End": "2025-03-31",
+  "Culture": "en-GB",
+  "DefaultAccount": "02238530",
+  "NonSubsFlags": [ 
+    "bbq", "bid", "bw", "shirt", "camp", "polo", "hoody", "scarf", "raffle",
+    "sum", "sleep", "family", "expedition", "challenge", "academy"
+  ]
+}

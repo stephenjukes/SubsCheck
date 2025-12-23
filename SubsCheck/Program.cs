@@ -6,7 +6,7 @@ using System.Text.Json;
 
 // DONE Put inputs out outputs folders into an IO folder
 // DONE Try to get an absolute path to the inputs and outputs folder
-//      Take maximum transaction range, (at least 6 months before and after desired range)
+// DONE Take maximum transaction range, (at least 6 months before and after desired range)
 // DONE Change Error class to Unallocated
 // DONE Clarify in excel which columns are readonly and which can be updated
 //      Add in the beaver start and end dates if available
@@ -46,7 +46,7 @@ namespace SubsCheck
             var subscriptionsService = new SubscriptionsService(config, dateService);
 
             var subsService = new SubsService(config, csvDataIO, subsWriter, memberService, subscriptionsService, dateService);
-            _ = await subsService.CalculateSubs();
+            await subsService.CalculateSubs();
         }
     }
 }

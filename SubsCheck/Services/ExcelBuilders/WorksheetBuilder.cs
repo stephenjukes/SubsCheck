@@ -1,8 +1,11 @@
 ﻿using ClosedXML.Excel;
+using SubsCheck.Constants;
 using SubsCheck.Constants.Enums;
+using SubsCheck.Extensions.Excel;
 using SubsCheck.Models;
 using SubsCheck.Models.Excel;
 using SubsCheck.Models.IO.Input;
+using static SubsCheck.Constants.Excel;
 
 namespace SubsCheck.Services.ExcelWriters
 {
@@ -11,8 +14,6 @@ namespace SubsCheck.Services.ExcelWriters
         protected IXLWorksheet _ws;
 
         protected readonly Configuration _config;
-        protected const string Unavailable = "-";
-        protected const string Unpaid = "x";
         protected const int HeaderRowCount = 2;
         protected const int HeaderColumnCount = 1;
         protected const int ReadWriteHeaderRowNumber = 1;
@@ -35,6 +36,7 @@ namespace SubsCheck.Services.ExcelWriters
             PopulateData(workbook, data);
             ApplySharedFormatting();
             StyleData(data);
+            UnprotectRange();
             AddProtectionStatusBanner();
             
             return _ws;
@@ -42,71 +44,18 @@ namespace SubsCheck.Services.ExcelWriters
 
         protected abstract void PopulateData<T>(XLWorkbook workbook, List<T> data);
 
-        protected abstract void StyleData<T>(List<T> data);
-
-        private ProtectionStatus GetReadWriteStatus(IEnumerable<IXLCell> cells)
+        protected virtual void UnprotectRange()
         {
-            if (cells.All(c => c.Style.Protection.Locked))
-                return ProtectionStatus.ReadOnly;
-
-            if (cells.All(c => !c.Style.Protection.Locked))
-                return ProtectionStatus.Editable;
-
-            return ProtectionStatus.SomeEditable;
         }
 
-        protected IXLWorksheet PopulateData(
-            IEnumerable<Member> members,
-            Action<Cell> advanceDate,
-            Action<Cell> carriageReturn,
-            Action<IXLCell, Slot> formatCell)
+        protected virtual void StyleData<T>(List<T> data)
         {
-            // a bit sloppy
-            var dateHeaders = GetDateHeaders(members.First());
-            var maxScope = Math.Max(dateHeaders.Count() + 1, members.Count() + 1);
-            var range = _ws.Range(1, 1, maxScope, maxScope);
-
-            var cellPosition = new Cell 
-            { 
-                Row = MainHeaderRowNumber, 
-                Column = MainHeaderColumnNumber 
-            };
-
-            foreach (var dateHeader in dateHeaders)
-            {
-                _ws.Cell(cellPosition.Row, cellPosition.Column).Value = dateHeader;
-                advanceDate(cellPosition);
-            }
-
-            carriageReturn(cellPosition);
-
-            foreach (var member in members)
-            {
-                var rowHeaders = GetNameHeader(member);
-
-                foreach (var rowHeader in rowHeaders)
-                {
-                    _ws.Cell(cellPosition.Row, cellPosition.Column).Value = rowHeader;
-                    advanceDate(cellPosition);
-                }
-
-                foreach (var slot in member.Slots)
-                {
-                    var cell = _ws.Cell(cellPosition.Row, cellPosition.Column);
-                    formatCell(cell, slot);
-
-                    advanceDate(cellPosition);
-                }
-
-                carriageReturn(cellPosition);
-            }
-
-            return _ws;
         }
 
-        public void AddProtectionStatusBanner()
+        protected virtual void AddProtectionStatusBanner()
         {
-            var protectionStatusByColumn = DataRangeUsed().Cells()
+            var rangeUsed = _ws.RangeUsed();
+            var protectionStatusByColumn = _ws.Range(DataRowStart, 1, rangeUsed.RowCount(), rangeUsed.ColumnCount()).Cells()
                 .GroupBy(cell => cell.WorksheetColumn().ColumnNumber())
                 .Select(group =>
                 {
@@ -125,8 +74,19 @@ namespace SubsCheck.Services.ExcelWriters
                     .Value = group.First().ProtectionStatus.ToString();
             }
 
-            //// TODO: Try to separate styling from here
+            // TODO: Try to separate styling from here
             _ws.Row(1).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+        }
+
+        private ProtectionStatus GetReadWriteStatus(IEnumerable<IXLCell> cells)
+        {
+            if (cells.All(c => c.Style.Protection.Locked))
+                return ProtectionStatus.ReadOnly;
+
+            if (cells.All(c => !c.Style.Protection.Locked))
+                return ProtectionStatus.Editable;
+
+            return ProtectionStatus.SomeEditable;
         }
 
         protected virtual List<List<ColumnProtectionStatus>> GroupProtectionStatusColumns(
@@ -153,22 +113,6 @@ namespace SubsCheck.Services.ExcelWriters
             return columnGroups;
         }
 
-        protected static IEnumerable<string> GetDateHeaders(Member member)
-            => GetNameHeader(member).Select(v => "")
-        .Concat(member.Slots.Select(s => s.Date.ToString("MMM yy")));
-
-        protected static IEnumerable<string> GetNameHeader(Member member)
-            => [$"{member.LastName} {member.FirstName}"];
-
-        protected IXLColumn? GetColumnByHeader(string header)
-        {
-            var rangeUsed = _ws.RangeUsed();
-            return rangeUsed
-                ?.Row(MainHeaderColumnNumber)
-                ?.CellsUsed().FirstOrDefault(c => c.GetString() == header)
-                ?.WorksheetColumn();
-        }
-
         protected IXLRange DataRangeUsed()
         {
             var rangeUsed = _ws.RangeUsed();
@@ -183,7 +127,7 @@ namespace SubsCheck.Services.ExcelWriters
         protected void ApplySharedFormatting()
             => ApplySharedFormatting(_ws.RangeUsed());
 
-        protected void ApplySharedFormatting(IXLRange range)
+        protected virtual void ApplySharedFormatting(IXLRange range)
         {
             if (range is null) return;
 
@@ -194,25 +138,26 @@ namespace SubsCheck.Services.ExcelWriters
             _ws.SheetView.Freeze(HeaderRowCount, HeaderColumnCount);
 
             range.AddConditionalFormat()
-                .WhenEquals(Unpaid)
-                .Fill.SetBackgroundColor(XLColor.LightPink)
-                .Font.SetFontColor(XLColor.Gray)
-                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+                .WhenEquals(0)
+                .Font.SetFontColor(XLColor.White);
 
             range.AddConditionalFormat()
-                .WhenEquals(Unavailable)
-                .Fill.SetBackgroundColor(XLColor.LightGray)
-                .Font.SetFontColor(XLColor.LightGray);
+                .WhenEquals(CellValues.Unpaid)
+                .ApplyStyle(Styles.Unpaid);
+
+            range.AddConditionalFormat()
+                .WhenEquals(CellValues.Unavailable)
+                .ApplyStyle(Styles.NonMember);
 
             _ws.Row(1).AddConditionalFormat()
                 .WhenEquals(ProtectionStatus.ReadOnly.ToString())
-                .Fill.SetBackgroundColor(XLColor.Orange);
+                .ApplyStyle(Styles.ReadOnly);
 
             _ws.Row(1).AddConditionalFormat()
                 .WhenEquals(ProtectionStatus.Editable.ToString())
-                .Fill.SetBackgroundColor(XLColor.GrannySmithApple);
+                .ApplyStyle(Styles.Editable);
 
-            _ws.Columns().AdjustToContents();
+            _ws.ColumnsUsed().AdjustToContents();
         }
     }
 }

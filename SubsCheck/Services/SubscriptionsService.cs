@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
+using SubsCheck.Constants.Enums;
 using SubsCheck.Extensions;
 using SubsCheck.Models;
-using SubsCheck.Models.Constants.Enums;
 using SubsCheck.Models.IO.Input;
 using SubsCheck.Services.Interfaces;
 
@@ -25,8 +25,6 @@ public class SubscriptionsService : ISubscriptionsService
     {
         var subs = transactions
             .Where(t =>
-                t.Date >= _config.Start &&
-                t.Date <= _config.End &&
                 t.Credit is not null &&
                 t.Credit % _config.SubsPrice == 0 &&
                 !_config.NonSubsFlags.Any(flag => t.Reference.Contains(flag, StringComparison.OrdinalIgnoreCase)))
@@ -36,7 +34,6 @@ public class SubscriptionsService : ISubscriptionsService
 
         foreach (var sub in subs)
         {
-            // TODO: Refactor subs score to its own method
             var reference = sub.Reference;
 
             if (reference is null)
@@ -79,7 +76,6 @@ public class SubscriptionsService : ISubscriptionsService
     // TODO: Should this have its own service?
     private Family MatchFamilyToReference(string reference, IList<Family> families)
     {
-        //var familyList = families.ToList();
         foreach (var f in families)
         {
             var score = 0;
