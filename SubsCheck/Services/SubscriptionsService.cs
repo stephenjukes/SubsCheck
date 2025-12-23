@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
+using SubsCheck.Constants.Enums;
 using SubsCheck.Extensions;
 using SubsCheck.Models;
-using SubsCheck.Models.Constants.Enums;
 using SubsCheck.Models.IO.Input;
 using SubsCheck.Services.Interfaces;
 

@@ -1,5 +1,5 @@
-﻿using SubsCheck.Models;
-using SubsCheck.Models.Constants.Enums;
+﻿using SubsCheck.Constants.Enums;
+using SubsCheck.Models;
 using SubsCheck.Models.IO.Input;
 using SubsCheck.Services.Interfaces;
 using static SubsCheck.Helpers.Helpers;
@@ -62,7 +62,7 @@ namespace SubsCheck.Services
             AllocateSubs(subs, families);
 
             var members = PrepareMembersForDisplay(families);
-            _unallocated.RemoveAll(u => u.Date <= _config.Start || u.Date >= _config.End);
+            _unallocated.RemoveAll(u => u.Date < _config.Start || u.Date > _config.End);
 
             _subsWriter.Write(new WriteRequest<Member, UnallocatedSub>
             {
@@ -81,7 +81,7 @@ namespace SubsCheck.Services
             foreach (var member in members)
             {
                 AssignConfidenceToSubs(member.Subs);
-                member.Slots.RemoveAll(s => s.Date <= _config.Start || s.Date >= _config.End);
+                member.Slots.RemoveAll(s => s.Date < _config.Start || s.Date > _config.End);
             }
 
             return members;

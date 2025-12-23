@@ -1,4 +1,4 @@
-﻿using SubsCheck.Models.Constants.Enums;
+﻿using SubsCheck.Constants.Enums;
 
 namespace SubsCheck.Models;
 public class Subscription : Transaction

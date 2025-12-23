@@ -1,4 +1,4 @@
-﻿namespace SubsCheck.Models.Constants.Enums
+﻿namespace SubsCheck.Constants.Enums
 {
     public enum AssignmentConfidence
     {

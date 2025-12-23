@@ -14,5 +14,13 @@ namespace SubsCheck.Extensions.Excel
                 render(style, parameterSet.Effect);
             }
         }
+
+        public static IXLRange AsRange(this IEnumerable<IXLCell> cells, IXLWorksheet ws)
+        {
+            var orderedCells = cells.OrderBy(c => 
+                c.WorksheetRow().RowNumber() + c.WorksheetColumn().ColumnNumber());
+
+            return ws.Range(orderedCells.First(), orderedCells.Last());
+        }
     }
 }

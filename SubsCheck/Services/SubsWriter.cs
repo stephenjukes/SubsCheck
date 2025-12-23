@@ -28,14 +28,14 @@ public class SubsWriter : ISubsWriter
         var data = request.Data.ToList();
         using var workbook = new XLWorkbook();
 
-        //var worksheetKey = _worksheetKeyBuilder.Create(WorksheetNames.Key, workbook, new List<string>());
+        var worksheetKey = _worksheetKeyBuilder.Create(WorksheetNames.Key, workbook, new List<string>());
         var worksheetDetail = _worksheetDetailBuilder.Create(WorksheetNames.Detail, workbook, data);
         var worksheetUnallocated = _worksheetUnallocatedBuilder.Create(WorksheetNames.Unallocated, workbook, request.Errors);
         var worksheetSummary = _worksheetSummaryBuilder.Create(WorksheetNames.Summary, workbook, data);
 
         var orderedWorksheets = new List<IXLWorksheet>
         {
-            //worksheetKey,
+            worksheetKey,
             worksheetUnallocated,
             worksheetDetail,
             worksheetSummary
