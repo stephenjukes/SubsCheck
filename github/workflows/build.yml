@@ -1,0 +1,39 @@
+name: Build SubsCheck (Self-Contained)
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Publish self-contained
+      run: >
+        dotnet publish
+        -c Release
+        -r win-x64
+        --self-contained true
+        -p:PublishSingleFile=true
+        -p:IncludeNativeLibrariesForSelfExtract=true
+        -o publish
+
+    - name: Zip output
+      run: |
+        Compress-Archive -Path publish\* -DestinationPath SubsCheck-win-x64.zip
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: SubsCheck-win-x64
+        path: SubsCheck-win-x64.zip
