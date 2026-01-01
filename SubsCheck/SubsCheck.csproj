@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="*.json" CopyToOutputDirectory="PreserveNewest" />
+	<None Include="*.csv"  CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Data\Outputs\" />
   </ItemGroup>
 
