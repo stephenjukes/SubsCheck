@@ -1,4 +1,4 @@
-name: Build SubsCheck Multi-Platform Release
+name: Build SubsCheck Release
 
 on:
   push:
@@ -15,15 +15,12 @@ jobs:
           - os: windows-latest
             rid: win-x64
             zip: SubsCheck-win-x64.zip
-            shell: pwsh
           - os: ubuntu-latest
             rid: linux-x64
             zip: SubsCheck-linux-x64.zip
-            shell: bash
           - os: macos-latest
             rid: osx-arm64
             zip: SubsCheck-macos-arm64.zip
-            shell: bash
 
     steps:
     - name: Checkout repository
@@ -35,7 +32,6 @@ jobs:
         dotnet-version: 8.0.x
 
     - name: Publish self-contained
-      shell: ${{ matrix.shell }}
       run: |
         dotnet publish SubsCheck/Program \
           -c Release \
@@ -45,19 +41,15 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true \
           -o publish
 
-    - name: Create ZIP (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: pwsh
+    - name: Create ZIP
       run: |
-        Compress-Archive -Path publish\* -DestinationPath ${{ matrix.zip }}
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          powershell -Command "Compress-Archive -Path publish\\* -DestinationPath ${{ matrix.zip }}"
+        else
+          zip -r ${{ matrix.zip }} publish
+        fi
 
-    - name: Create ZIP (Linux/macOS)
-      if: matrix.os != 'windows-latest'
-      shell: bash
-      run: |
-        zip -r ${{ matrix.zip }} publish
-
-    - name: Create GitHub Release (once)
+    - name: Create GitHub Release
       if: matrix.os == 'windows-latest'
       uses: softprops/action-gh-release@v1
       with:
