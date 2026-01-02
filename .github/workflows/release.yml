@@ -37,13 +37,13 @@ jobs:
     - name: Publish self-contained
       run: dotnet publish SubsCheck/SubsCheck.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 
-    - name: Create ZIP
-      run: |
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          powershell -Command "Compress-Archive -Path publish\\* -DestinationPath ${{ matrix.zip }}"
-        else
-          zip -r ${{ matrix.zip }} publish
-        fi
+    - name: Create ZIP (Windows)
+      if: matrix.os == 'windows-latest'
+      run: powershell -Command "Compress-Archive -Path publish\\* -DestinationPath ${{ matrix.zip }}"
+
+    - name: Create ZIP (Linux/macOS)
+      if: matrix.os != 'windows-latest'
+      run: zip -r ${{ matrix.zip }} publish
 
     - name: Create GitHub Release
       if: matrix.os == 'windows-latest'
