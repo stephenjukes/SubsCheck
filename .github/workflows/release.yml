@@ -3,25 +3,27 @@ name: Build SubsCheck Multi-Platform Release
 on:
   push:
     tags:
-      - 'v*'      # triggers on tags like v1.0, v1.2.3
-  workflow_dispatch: # allows manual runs
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
         include:
           - os: windows-latest
             rid: win-x64
             zip: SubsCheck-win-x64.zip
+            shell: pwsh
           - os: ubuntu-latest
             rid: linux-x64
             zip: SubsCheck-linux-x64.zip
+            shell: bash
           - os: macos-latest
             rid: osx-arm64
             zip: SubsCheck-macos-arm64.zip
+            shell: bash
 
     steps:
     - name: Checkout repository
@@ -33,22 +35,30 @@ jobs:
         dotnet-version: 8.0.x
 
     - name: Publish self-contained
+      shell: ${{ matrix.shell }}
       run: |
-        dotnet publish -c Release -r ${{ matrix.rid }} --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:IncludeNativeLibrariesForSelfExtract=true `
+        dotnet publish SubsCheck/Program \
+          -c Release \
+          -r ${{ matrix.rid }} \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:IncludeNativeLibrariesForSelfExtract=true \
           -o publish
 
-    - name: Create ZIP
+    - name: Create ZIP (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
       run: |
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          Compress-Archive -Path publish\* -DestinationPath ${{ matrix.zip }}
-        else
-          zip -r ${{ matrix.zip }} publish
-        fi
+        Compress-Archive -Path publish\* -DestinationPath ${{ matrix.zip }}
 
-    - name: Create GitHub Release (once per workflow)
-      if: github.run_attempt == 1 && matrix.os == 'windows-latest'
+    - name: Create ZIP (Linux/macOS)
+      if: matrix.os != 'windows-latest'
+      shell: bash
+      run: |
+        zip -r ${{ matrix.zip }} publish
+
+    - name: Create GitHub Release (once)
+      if: matrix.os == 'windows-latest'
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ github.ref_name }}
