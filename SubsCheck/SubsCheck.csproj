@@ -13,10 +13,10 @@
     <PackageReference Include="System.Linq.Async" Version="6.0.3" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Include="*.json" CopyToOutputDirectory="PreserveNewest" />
-	<None Include="*.csv"  CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+    <ItemGroup>
+	    <None Include="Data/**/*.json" CopyToOutputDirectory="PreserveNewest" />
+	    <None Include="Data/**/*.csv"  CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Data\Outputs\" />
