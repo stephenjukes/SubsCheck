@@ -33,7 +33,7 @@ jobs:
 
     - name: Publish self-contained
       run: |
-        dotnet publish SubsCheck/Program \
+        dotnet publish SubsCheck/SubsCheck.csproj \
           -c Release \
           -r ${{ matrix.rid }} \
           --self-contained true \
