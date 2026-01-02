@@ -32,14 +32,7 @@ jobs:
         dotnet-version: 8.0.x
 
     - name: Publish self-contained
-      run: |
-        dotnet publish SubsCheck/SubsCheck.csproj \
-          -c Release \
-          -r ${{ matrix.rid }} \
-          --self-contained true \
-          -p:PublishSingleFile=true \
-          -p:IncludeNativeLibrariesForSelfExtract=true \
-          -o publish
+      run: dotnet publish SubsCheck/SubsCheck.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
 
     - name: Create ZIP
       run: |
