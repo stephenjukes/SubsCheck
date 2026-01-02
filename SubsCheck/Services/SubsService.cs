@@ -35,6 +35,8 @@ namespace SubsCheck.Services
             _subscriptionsService = subscriptionsService;
             _dateService = dateService;
 
+            // push
+
             //var root = ".\\..\\..\\..\\";
             //var root = AppContext.BaseDirectory;
             //var ioDirectory = Directory.GetDirectories(root, "Data", SearchOption.AllDirectories).FirstOrDefault();
