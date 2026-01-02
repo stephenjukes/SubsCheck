@@ -36,17 +36,46 @@ namespace SubsCheck.Services
             _dateService = dateService;
 
             //var root = ".\\..\\..\\..\\";
+            //var root = AppContext.BaseDirectory;
+            //var ioDirectory = Directory.GetDirectories(root, "Data", SearchOption.AllDirectories).FirstOrDefault();
+
+            //var inputsDirectory = Directory.GetDirectories(ioDirectory, "Inputs", SearchOption.AllDirectories).FirstOrDefault();
+            //_inputFiles = Directory.GetFiles(inputsDirectory);
+
+            //var transactionsPath = Path.Combine(inputsDirectory, "Transactions");
+            //_transactionFiles = Directory.GetFiles(transactionsPath);
+
+            //var datetimeString = DateTime.Now.ToString("yyyyMMdd_hhmmss");
+            //_outputPath = Path.Combine(ioDirectory, "Outputs", $"Subs_{datetimeString}.xlsx");
+
             var root = AppContext.BaseDirectory;
-            var ioDirectory = Directory.GetDirectories(root, "Data", SearchOption.AllDirectories).FirstOrDefault();
 
-            var inputsDirectory = Directory.GetDirectories(ioDirectory, "Inputs", SearchOption.AllDirectories).FirstOrDefault();
-            _inputFiles = Directory.GetFiles(inputsDirectory);
+            // Data root
+            var dataDirectory = Path.Combine(root, "Data");
+            if (!Directory.Exists(dataDirectory))
+                throw new DirectoryNotFoundException($"Data directory not found: {dataDirectory}");
 
-            var transactionsPath = Path.Combine(inputsDirectory, "Transactions");
-            _transactionFiles = Directory.GetFiles(transactionsPath);
+            // Inputs
+            var inputsDirectory = Path.Combine(dataDirectory, "Inputs");
+            if (!Directory.Exists(inputsDirectory))
+                throw new DirectoryNotFoundException($"Inputs directory not found: {inputsDirectory}");
 
-            var datetimeString = DateTime.Now.ToString("yyyyMMdd_hhmmss");
-            _outputPath = Path.Combine(ioDirectory, "Outputs", $"Subs_{datetimeString}.xlsx");
+            _inputFiles = Directory.GetFiles(inputsDirectory, "*.csv");
+
+            // Transactions
+            var transactionsDirectory = Path.Combine(dataDirectory, "Transactions");
+            if (!Directory.Exists(transactionsDirectory))
+                throw new DirectoryNotFoundException($"Transactions directory not found: {transactionsDirectory}");
+
+            _transactionFiles = Directory.GetFiles(transactionsDirectory, "*.csv");
+
+            // Outputs
+            var outputsDirectory = Path.Combine(dataDirectory, "Outputs");
+            Directory.CreateDirectory(outputsDirectory); // safe even if it exists
+
+            var datetimeString = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            _outputPath = Path.Combine(outputsDirectory, $"Subs_{datetimeString}.xlsx");
+
         }
 
         public async Task CalculateSubs()
