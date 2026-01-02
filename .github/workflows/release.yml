@@ -1,5 +1,8 @@
 name: Build SubsCheck Release
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
