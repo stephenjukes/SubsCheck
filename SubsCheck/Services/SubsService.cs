@@ -115,6 +115,9 @@ namespace SubsCheck.Services
                 allTransactions.AddRange(transactions);
             }
 
+            if (!allTransactions.Any())
+                throw new InvalidOperationException("No transactions have been provided.");
+
             return allTransactions;
         }
 
@@ -122,6 +125,9 @@ namespace SubsCheck.Services
         {
             var membersFile = _inputFiles.FirstOrDefault(f => Path.GetFileName(f) == "Members.csv");
             var memberDtos = await _csvDataIO.Read<MemberInput>(new ReadRequest { ResourceLocator = membersFile });
+
+            if (!memberDtos.Any())
+                throw new InvalidOperationException("No members have been provided.");
 
             return memberDtos;
         }
