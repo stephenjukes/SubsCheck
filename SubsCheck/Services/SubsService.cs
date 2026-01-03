@@ -50,7 +50,7 @@ namespace SubsCheck.Services
             _inputFiles = Directory.GetFiles(inputsDirectory, "*.csv");
 
             // Transactions
-            var transactionsDirectory = Path.Combine(dataDirectory, "Transactions");
+            var transactionsDirectory = Path.Combine(inputsDirectory, "Transactions");
             if (!Directory.Exists(transactionsDirectory))
                 throw new DirectoryNotFoundException($"Transactions directory not found: {transactionsDirectory}");
 
