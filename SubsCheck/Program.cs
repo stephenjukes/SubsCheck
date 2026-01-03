@@ -27,15 +27,25 @@ namespace SubsCheck
     {
         static async Task Main(string[] args)
         {
-            var root = ".\\..\\..\\..\\";
-            var inputs = Directory
-                .GetDirectories(root, "Inputs", SearchOption.AllDirectories)
-                .FirstOrDefault();
+            // The next 15 lines are repeated in the SubsService
+            var root = AppContext.BaseDirectory;
 
-            var configFile = Directory
-                .GetFiles(inputs, "config.json", SearchOption.AllDirectories)
-                .FirstOrDefault();
-               
+            // Data root
+            var dataDirectory = Path.Combine(root, "Data");
+            if (!Directory.Exists(dataDirectory))
+                throw new DirectoryNotFoundException($"Data directory not found: {dataDirectory}");
+
+            // Inputs
+            var inputsDirectory = Path.Combine(dataDirectory, "Inputs");
+            if (!Directory.Exists(inputsDirectory))
+                throw new DirectoryNotFoundException($"Inputs directory not found: {inputsDirectory}");
+
+            //var configFile = Directory
+            //    .GetFiles(inputs, "config.json", SearchOption.AllDirectories)
+            //    .FirstOrDefault();
+
+            var configFile = Directory.GetFiles(inputsDirectory, "config.json").FirstOrDefault();
+
             var configString = await File.ReadAllTextAsync(configFile);
             var config = JsonSerializer.Deserialize<Configuration>(configString);
 

@@ -35,21 +35,6 @@ namespace SubsCheck.Services
             _subscriptionsService = subscriptionsService;
             _dateService = dateService;
 
-            // push
-
-            //var root = ".\\..\\..\\..\\";
-            //var root = AppContext.BaseDirectory;
-            //var ioDirectory = Directory.GetDirectories(root, "Data", SearchOption.AllDirectories).FirstOrDefault();
-
-            //var inputsDirectory = Directory.GetDirectories(ioDirectory, "Inputs", SearchOption.AllDirectories).FirstOrDefault();
-            //_inputFiles = Directory.GetFiles(inputsDirectory);
-
-            //var transactionsPath = Path.Combine(inputsDirectory, "Transactions");
-            //_transactionFiles = Directory.GetFiles(transactionsPath);
-
-            //var datetimeString = DateTime.Now.ToString("yyyyMMdd_hhmmss");
-            //_outputPath = Path.Combine(ioDirectory, "Outputs", $"Subs_{datetimeString}.xlsx");
-
             var root = AppContext.BaseDirectory;
 
             // Data root
