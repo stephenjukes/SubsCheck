@@ -7,9 +7,6 @@ namespace SubsCheck.Models.IO.Input
         [Name("Transaction Date")]
         public DateOnly Date { get; set; }
 
-        [Name("Transaction Type")]
-        public string Type { get; set; }
-
         [Name("Account Number")]
         public string AccountNumber { get; set; }
 
@@ -18,5 +15,8 @@ namespace SubsCheck.Models.IO.Input
 
         [Name("Credit Amount")]
         public decimal? Credit { get; set; }
+
+        public override string ToString()
+            => $"{Credit}: {Reference}";
     }
 }

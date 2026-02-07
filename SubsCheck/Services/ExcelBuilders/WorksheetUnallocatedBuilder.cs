@@ -27,12 +27,18 @@ namespace SubsCheck.Services.ExcelWriters
 
         protected override void PopulateData<T>(XLWorkbook workbook, List<T> data)
         {
-            var errors = data as List<UnallocatedSub>;
+            var errors = data as List<UnallocatedSub> ?? [];
 
             for (var i = 0; i < _headerNames.Length; i++)
                 _ws.Cell(2, i + 1).SetValue(_headerNames[i]);
 
-            // TODO: We should really be using PopulateData here
+            if (!errors.Any())
+                errors.Add(new UnallocatedSub
+                {
+                    AccountNumber = "All",
+                    Reference = "Allocated",
+                });
+
             for (var err = 0; err < errors.Count; err++)
             {
                 var error = errors[err];
@@ -50,12 +56,15 @@ namespace SubsCheck.Services.ExcelWriters
 
        protected override void StyleData<T>(List<T> data)
        {
-            var errors = data as List<UnallocatedSub>;
+            var rangeUsed = _ws.RangeUsed();
+
+            if (rangeUsed is null)
+                return;
 
             var addedColumnRange = _ws.Range(
                 DataRowStart,
                 _propertyNames.Count(),
-                DataRowStart + errors.Count(),
+                DataRowStart + data.Count,
                 _propertyNames.Count() + _headerNames.Count());
 
             addedColumnRange.AddConditionalFormat<XLColor>(
@@ -68,7 +77,6 @@ namespace SubsCheck.Services.ExcelWriters
                     new (AllocationStatus.OverAllocated.ToString(), XLColor.Red)
                 ]);
 
-            var rangeUsed = _ws.RangeUsed();
             var lastCell = rangeUsed.LastCellUsed();
 
             rangeUsed.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
@@ -170,7 +178,7 @@ namespace SubsCheck.Services.ExcelWriters
             {
                 _ws.GetColumnByValue(ColumnNames.Outcome),
                 _ws.GetColumnByValue(ColumnNames.Notes)
-            };
+            }.Where(c => c is not null);
 
             foreach (var column in columnsToUnprotect)
                 column.Style.Protection.SetLocked(false);

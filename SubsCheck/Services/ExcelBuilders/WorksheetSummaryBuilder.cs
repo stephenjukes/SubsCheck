@@ -34,10 +34,11 @@ namespace SubsCheck.Services.ExcelWriters
                     var cellValue = detailWorksheet.Cell(row, column).GetValue<string>();
 
                     // get culture info from config
-                    var isDataCell = cellValue.Length >= 10 && DateTime.TryParse(cellValue[..10], new CultureInfo("en-GB"), out var date); // pivotedRow > MainHeaderRowNumber && pivotedColumn > MainHeaderColumnNumber;
-                    _ws.Cell(pivotedRow, pivotedColumn).FormulaA1 = isDataCell
-                        ? ExtractDate(srcValue)
-                        : srcValue;
+                    //var isDateCell = cellValue.Length >= 10 && DateTime.TryParse(cellValue[..10], new CultureInfo("en-GB"), out var date); // pivotedRow > MainHeaderRowNumber && pivotedColumn > MainHeaderColumnNumber;
+
+                    // TODO: For the time being, this works on trust that the src value starts with a date
+                    // We need to assume this for when Unallocated references are copied and pasted to the Detail tab
+                    _ws.Cell(pivotedRow, pivotedColumn).FormulaA1 = ExtractDate(srcValue);
                 }
 
                 var lastColumnUsed = _ws.LastColumnUsed();
@@ -54,14 +55,7 @@ namespace SubsCheck.Services.ExcelWriters
 
             var notesColumn = _ws.GetColumnByValue(ColumnNames.Notes);
             notesColumn.Width = 50; // TODO: make this a constant
-
-            var notesData = _ws.Range(
-                DataRowStart,
-                notesColumn.ColumnNumber(),
-                dataRangeUsed.RowCount(),
-                notesColumn.ColumnNumber());
-           
-            notesData.Style.ApplyStyle(Styles.Note);
+            notesColumn.Style.ApplyStyle(Styles.Note);
         }
 
         private static string ExtractDate(string text)

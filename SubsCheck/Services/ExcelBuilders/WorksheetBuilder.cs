@@ -3,7 +3,6 @@ using SubsCheck.Constants;
 using SubsCheck.Constants.Enums;
 using SubsCheck.Extensions.Excel;
 using SubsCheck.Models;
-using SubsCheck.Models.Excel;
 using SubsCheck.Models.IO.Input;
 using static SubsCheck.Constants.Excel;
 
@@ -55,6 +54,10 @@ namespace SubsCheck.Services.ExcelWriters
         protected virtual void AddProtectionStatusBanner()
         {
             var rangeUsed = _ws.RangeUsed();
+
+            if (rangeUsed is null)
+                return;
+
             var protectionStatusByColumn = _ws.Range(DataRowStart, 1, rangeUsed.RowCount(), rangeUsed.ColumnCount()).Cells()
                 .GroupBy(cell => cell.WorksheetColumn().ColumnNumber())
                 .Select(group =>
